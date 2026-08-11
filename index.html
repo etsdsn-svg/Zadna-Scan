@@ -1,0 +1,1428 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>Scanner Pro — ZADNA.SOL.X</title>
+
+<link rel="manifest" href="./manifest.json">
+<meta name="theme-color" content="#3B5BFF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Scanner Pro">
+<link rel="apple-touch-icon" href="./icon-192.png">
+<link rel="icon" href="./icon-192.png">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script>
+  // OpenCV s'initialise de façon asynchrone : le chargement du script ne suffit
+  // pas, il faut attendre l'initialisation du runtime WebAssembly.
+  window.__cvState = 'loading';
+  window.__onCvReady = function () {
+    window.__cvState = 'ready';
+    document.dispatchEvent(new Event('opencv-ready'));
+  };
+  window.__onCvLoaded = function () {
+    if (typeof cv === 'undefined') { window.__cvState = 'failed'; return; }
+    if (typeof cv.then === 'function') {            // builds récents : Promise
+      cv.then(function (m) { window.cv = m; window.__onCvReady(); });
+    } else if (typeof cv.Mat === 'function') {      // déjà prêt
+      window.__onCvReady();
+    } else {                                        // builds classiques
+      cv.onRuntimeInitialized = window.__onCvReady;
+    }
+  };
+</script>
+<script async src="https://docs.opencv.org/4.9.0/opencv.js"
+        onload="window.__onCvLoaded()"
+        onerror="window.__cvState='failed'"></script>
+
+<script>
+  tailwind.config = {
+    theme: {
+      extend: {
+        colors: {
+          indigo: { DEFAULT: '#3B5BFF', 50:'#EEF1FF', 100:'#DCE2FF', 600:'#3B5BFF', 700:'#2E47CC' },
+          teal:   { DEFAULT: '#00C2A8', 50:'#E6FBF8', 600:'#00C2A8', 700:'#009985' },
+          orange: { DEFAULT: '#FF5B3D', 50:'#FFEEEA', 600:'#FF5B3D', 700:'#E0432A' },
+          gold:   { DEFAULT: '#FFC93C', 50:'#FFF8E6', 600:'#FFC93C', 700:'#E0AA1E' },
+          ink:    '#14171F',
+          paper:  '#F7F8FA',
+        },
+        fontFamily: {
+          display: ['"Space Grotesk"','sans-serif'],
+          sans: ['"Inter"','sans-serif'],
+          mono: ['"JetBrains Mono"','monospace'],
+        },
+        boxShadow: {
+          fab: '0 10px 30px -8px rgba(59,91,255,0.55)',
+          card: '0 1px 2px rgba(20,23,31,0.04), 0 8px 24px -12px rgba(20,23,31,0.12)',
+        }
+      }
+    }
+  }
+</script>
+
+<style>
+  html, body { overscroll-behavior-y: none; }
+  body { background: #F7F8FA; }
+  .no-scrollbar::-webkit-scrollbar { display: none; }
+  .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+  /* Coins de viseur — les 4 branches du nœud ZADNA.SOL.X */
+  .vf-corner { position:absolute; width:34px; height:34px; }
+  .vf-tl { top:14%; left:8%; border-top:4px solid #3B5BFF; border-left:4px solid #3B5BFF; border-radius:6px 0 0 0; }
+  .vf-tr { top:14%; right:8%; border-top:4px solid #00C2A8; border-right:4px solid #00C2A8; border-radius:0 6px 0 0; }
+  .vf-bl { bottom:14%; left:8%; border-bottom:4px solid #FFC93C; border-left:4px solid #FFC93C; border-radius:0 0 0 6px; }
+  .vf-br { bottom:14%; right:8%; border-bottom:4px solid #FF5B3D; border-right:4px solid #FF5B3D; border-radius:0 0 6px 0; }
+
+  .node-mark { display:inline-block; }
+
+  @keyframes flash { 0%{opacity:.9} 100%{opacity:0} }
+  .flash-anim { animation: flash .35s ease-out forwards; }
+
+  @keyframes toast-in { from{ transform:translateY(12px); opacity:0 } to{ transform:translateY(0); opacity:1 } }
+  .toast-anim { animation: toast-in .25s ease-out; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .flash-anim, .toast-anim { animation: none !important; }
+  }
+
+  :focus-visible { outline: 2px solid #3B5BFF; outline-offset: 2px; }
+
+  .tab-active { color:#3B5BFF; border-color:#3B5BFF; }
+
+  .crop-handle { fill:#fff; stroke:#3B5BFF; stroke-width:3; cursor:grab; }
+  .crop-edge { stroke:#3B5BFF; stroke-width:2.5; fill:rgba(59,91,255,0.12); }
+</style>
+</head>
+<body class="h-full flex flex-col font-sans text-ink antialiased">
+
+  <!-- En-tête -->
+  <header class="bg-white/90 backdrop-blur border-b border-slate-200 px-4 py-3 flex items-center justify-between sticky top-0 z-30">
+    <div class="flex items-center gap-2.5">
+      <svg class="node-mark w-8 h-8" viewBox="0 0 40 40" fill="none">
+        <circle cx="20" cy="20" r="3.5" fill="#14171F"/>
+        <line x1="20" y1="20" x2="8" y2="8" stroke="#3B5BFF" stroke-width="3" stroke-linecap="round"/>
+        <line x1="20" y1="20" x2="32" y2="8" stroke="#00C2A8" stroke-width="3" stroke-linecap="round"/>
+        <line x1="20" y1="20" x2="8" y2="32" stroke="#FFC93C" stroke-width="3" stroke-linecap="round"/>
+        <line x1="20" y1="20" x2="32" y2="32" stroke="#FF5B3D" stroke-width="3" stroke-linecap="round"/>
+      </svg>
+      <div class="leading-none">
+        <p class="font-mono text-[10px] tracking-[0.18em] text-slate-400 uppercase">ZADNA.SOL.X</p>
+        <h1 class="font-display font-bold text-lg text-ink -mt-0.5">Scanner Pro</h1>
+      </div>
+    </div>
+    <div class="flex items-center gap-2">
+      <span id="page-count-chip" class="hidden font-mono text-xs px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 font-medium"></span>
+      <label for="file-input" class="cursor-pointer w-9 h-9 flex items-center justify-center text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-full transition-colors" aria-label="Importer un fichier">
+        <svg class="w-4.5 h-4.5" width="18" height="18" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+        </svg>
+      </label>
+      <input type="file" id="file-input" accept="image/*,application/pdf" class="hidden" multiple>
+    </div>
+  </header>
+
+  <!-- Contenu principal -->
+  <main class="flex-1 overflow-y-auto no-scrollbar pb-32">
+    <div class="max-w-4xl mx-auto w-full p-4 flex flex-col gap-5">
+
+      <!-- Nom du document -->
+      <div id="docname-row" class="hidden items-center gap-2">
+        <svg class="w-4 h-4 text-slate-400 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" /></svg>
+        <input id="doc-name" type="text" class="flex-1 bg-transparent font-mono text-sm text-slate-600 focus:outline-none border-b border-transparent focus:border-indigo-400 py-1" />
+      </div>
+
+      <!-- État vide -->
+      <div id="empty-state" class="border-2 border-dashed border-slate-300 rounded-3xl bg-white flex flex-col items-center justify-center gap-4 py-14 px-6 text-center">
+        <div class="relative w-32 h-20 rounded-xl bg-slate-900">
+          <div class="vf-corner vf-tl" style="width:22px;height:22px;border-width:3px;"></div>
+          <div class="vf-corner vf-tr" style="width:22px;height:22px;border-width:3px;"></div>
+          <div class="vf-corner vf-bl" style="width:22px;height:22px;border-width:3px;"></div>
+          <div class="vf-corner vf-br" style="width:22px;height:22px;border-width:3px;"></div>
+        </div>
+        <div>
+          <p class="font-display font-semibold text-ink text-lg">Prêt à numériser</p>
+          <p class="text-sm text-slate-500 mt-1 max-w-xs">Alignez un document dans le cadre ou importez une image / un PDF existant.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <button id="empty-scan-btn" class="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white font-medium text-sm rounded-full shadow-fab transition-colors">Scanner un document</button>
+          <label for="file-input" class="px-4 py-2.5 text-sm font-medium text-slate-600 hover:text-ink cursor-pointer">Importer</label>
+        </div>
+      </div>
+
+      <!-- Galerie -->
+      <section id="gallery-section" class="hidden">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-400">Pages</h2>
+          <button id="clear-all-btn" class="text-xs font-medium text-slate-400 hover:text-orange-600">Tout effacer</button>
+        </div>
+        <div id="pages-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
+      </section>
+
+      <!-- Résultat OCR -->
+      <section id="ocr-section" class="hidden bg-white rounded-2xl shadow-card p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="font-display font-semibold text-sm text-ink">Texte extrait</h3>
+          <div class="flex items-center gap-3">
+            <button id="ocr-copy-btn" class="text-xs font-medium text-indigo-600 hover:text-indigo-700">Copier</button>
+            <button id="ocr-download-btn" class="text-xs font-medium text-indigo-600 hover:text-indigo-700">Télécharger .txt</button>
+          </div>
+        </div>
+        <div id="ocr-tabs" class="flex gap-1 overflow-x-auto no-scrollbar mb-2 border-b border-slate-100"></div>
+        <textarea id="ocr-text-result" rows="6" class="w-full p-3 text-sm font-mono bg-slate-50 border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 resize-none" readonly></textarea>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Barre d'actions basse -->
+  <nav id="bottom-nav" class="fixed bottom-0 inset-x-0 bg-white/95 backdrop-blur border-t border-slate-200 pb-[max(env(safe-area-inset-bottom),0.75rem)] pt-2 z-30">
+    <div class="max-w-4xl mx-auto flex items-end justify-between px-6">
+      <label for="file-input" class="flex flex-col items-center gap-1 text-slate-500 hover:text-ink cursor-pointer w-14">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" /></svg>
+        <span class="text-[10px] font-medium">Importer</span>
+      </label>
+
+      <button id="ocr-btn" class="flex flex-col items-center gap-1 text-slate-500 hover:text-ink w-14 disabled:opacity-40" disabled>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+        <span class="text-[10px] font-medium">OCR</span>
+      </button>
+
+      <button id="start-camera-btn" class="relative -mt-6 w-16 h-16 rounded-full bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white shadow-fab transition-all flex items-center justify-center shrink-0" aria-label="Scanner un document">
+        <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h0.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+
+      <button id="open-signature-btn" class="flex flex-col items-center gap-1 text-slate-500 hover:text-ink w-14 disabled:opacity-40" disabled>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" /></svg>
+        <span class="text-[10px] font-medium">Signer</span>
+      </button>
+
+      <button id="export-pdf-btn" class="flex flex-col items-center gap-1 text-slate-500 hover:text-ink w-14 disabled:opacity-40" disabled>
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+        <span class="text-[10px] font-medium">Exporter</span>
+      </button>
+    </div>
+  </nav>
+
+  <!-- Modal Caméra -->
+  <div id="camera-modal" class="fixed inset-0 bg-slate-950 z-50 flex flex-col justify-between hidden">
+    <div class="p-4 flex items-center justify-between text-white z-10 bg-gradient-to-b from-black/70 to-transparent">
+      <span class="font-mono text-xs tracking-wide text-white/80">SCANNER · <span id="cam-page-count">0</span> page(s)</span>
+      <button id="close-camera-btn" class="p-2 text-white/80 hover:text-white" aria-label="Fermer">
+        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+      </button>
+    </div>
+
+    <div class="relative flex-1 flex items-center justify-center overflow-hidden">
+      <video id="webcam-feed" autoplay playsinline class="max-h-full max-w-full object-contain"></video>
+      <div class="vf-corner vf-tl"></div>
+      <div class="vf-corner vf-tr"></div>
+      <div class="vf-corner vf-bl"></div>
+      <div class="vf-corner vf-br"></div>
+      <div id="flash-overlay" class="absolute inset-0 bg-white pointer-events-none opacity-0"></div>
+    </div>
+
+    <div class="p-6 flex items-center justify-center bg-gradient-to-t from-black/80 to-transparent">
+      <button id="capture-btn" class="w-20 h-20 rounded-full border-[3px] border-white flex items-center justify-center p-1.5 active:scale-90 transition-transform" aria-label="Capturer">
+        <div class="w-full h-full rounded-full" style="background: conic-gradient(#3B5BFF, #00C2A8, #FFC93C, #FF5B3D, #3B5BFF);"></div>
+      </button>
+    </div>
+  </div>
+
+  <!-- Modal Signature -->
+  <div id="signature-modal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+    <div class="bg-white rounded-2xl max-w-md w-full p-5 flex flex-col gap-4 shadow-xl">
+      <div class="flex items-center justify-between">
+        <h3 class="font-display font-semibold text-ink">Dessiner votre signature</h3>
+        <button id="close-signature-btn" class="text-slate-400 hover:text-slate-600" aria-label="Fermer">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
+        </button>
+      </div>
+
+      <div class="border border-slate-200 rounded-xl bg-slate-50 overflow-hidden touch-none">
+        <canvas id="signature-pad" width="400" height="200" class="w-full h-48 bg-white cursor-crosshair"></canvas>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <span class="text-xs text-slate-500 mr-1">Encre :</span>
+        <button data-color="#14171F" class="pen-swatch w-6 h-6 rounded-full bg-ink ring-2 ring-offset-2 ring-ink"></button>
+        <button data-color="#3B5BFF" class="pen-swatch w-6 h-6 rounded-full bg-indigo-600 ring-2 ring-offset-2 ring-transparent"></button>
+        <label class="flex items-center gap-1.5 ml-auto text-xs text-slate-500">
+          <input type="checkbox" id="sig-all-pages" class="rounded border-slate-300 text-indigo-600 focus:ring-indigo-500">
+          Toutes les pages
+        </label>
+      </div>
+
+      <div class="flex items-center justify-between gap-3">
+        <button id="clear-signature-btn" class="px-4 py-2 text-sm font-medium text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">Effacer</button>
+        <button id="save-signature-btn" class="px-5 py-2 text-sm font-medium text-white bg-teal-600 hover:bg-teal-700 rounded-xl shadow-sm transition-colors">Appliquer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toasts -->
+  <div id="toast-container" class="fixed bottom-24 inset-x-0 flex flex-col items-center gap-2 z-[60] pointer-events-none px-4"></div>
+
+  <!-- Modal Édition de texte -->
+  <div id="edit-modal" class="fixed inset-0 bg-slate-950 z-[56] flex flex-col hidden">
+    <div class="p-4 pt-[max(env(safe-area-inset-top),1rem)] flex items-center justify-between text-white">
+      <button id="edit-close-btn" class="text-sm font-medium text-white/70 hover:text-white">Fermer</button>
+      <span id="edit-mode-badge" class="font-mono text-[10px] px-2 py-1 rounded-full"></span>
+      <button id="edit-undo-btn" class="text-sm font-medium text-white/70 hover:text-white disabled:opacity-30" disabled>Annuler</button>
+    </div>
+
+    <div class="flex-1 flex items-center justify-center overflow-auto px-3">
+      <div id="edit-stage" class="relative">
+        <canvas id="edit-canvas" class="max-w-full block rounded-lg bg-white"></canvas>
+        <div id="edit-boxes" class="absolute inset-0"></div>
+      </div>
+    </div>
+
+    <div class="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-4 flex flex-col gap-3">
+      <p id="edit-hint" class="text-center text-xs text-white/50">Touchez un mot pour le modifier</p>
+      <div class="flex items-center gap-3">
+        <button id="edit-toggle-boxes" class="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">Masquer les zones</button>
+        <button id="edit-apply-btn" class="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">Enregistrer</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Saisie inline d'édition -->
+  <div id="edit-input-sheet" class="fixed inset-x-0 bottom-0 z-[57] bg-white rounded-t-2xl p-4 pb-[max(env(safe-area-inset-bottom),1rem)] shadow-2xl hidden">
+    <div class="flex items-center justify-between mb-2">
+      <span class="text-xs font-semibold uppercase tracking-wider text-slate-400">Modifier le texte</span>
+      <span id="edit-input-meta" class="font-mono text-[10px] text-slate-400"></span>
+    </div>
+    <input id="edit-input" type="text" class="w-full p-3 text-base border border-slate-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500" />
+    <div class="flex items-center gap-2 mt-3">
+      <button id="edit-input-cancel" class="px-4 py-2.5 text-sm font-medium text-slate-600 bg-slate-100 rounded-xl">Annuler</button>
+      <button id="edit-input-delete" class="px-4 py-2.5 text-sm font-medium text-orange-600 bg-orange-50 rounded-xl">Effacer</button>
+      <button id="edit-input-ok" class="flex-1 py-2.5 text-sm font-semibold text-white bg-indigo-600 rounded-xl">Appliquer</button>
+    </div>
+  </div>
+
+  <!-- Modal Ajustement des bords -->
+  <div id="crop-modal" class="fixed inset-0 bg-slate-950 z-[55] flex flex-col hidden">
+    <div class="p-4 pt-[max(env(safe-area-inset-top),1rem)] flex items-center justify-between text-white">
+      <button id="crop-cancel-btn" class="text-sm font-medium text-white/70 hover:text-white">Annuler</button>
+      <span class="font-mono text-xs tracking-wide text-white/80">AJUSTER LES BORDS</span>
+      <button id="crop-reset-btn" class="text-sm font-medium text-white/70 hover:text-white">Tout</button>
+    </div>
+
+    <div class="flex-1 flex items-center justify-center overflow-hidden px-3">
+      <div id="crop-stage" class="relative touch-none">
+        <canvas id="crop-canvas" class="max-w-full block rounded-lg"></canvas>
+        <svg id="crop-overlay" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+      </div>
+    </div>
+
+    <div class="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-4 flex flex-col gap-3">
+      <p id="crop-hint" class="text-center text-xs text-white/50">Faites glisser les coins pour cadrer le document</p>
+      <div class="flex items-center gap-3">
+        <button id="crop-auto-btn" class="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">Détecter à nouveau</button>
+        <button id="crop-apply-btn" class="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">Valider le cadrage</button>
+      </div>
+    </div>
+  </div>
+
+  <canvas id="hidden-canvas" class="hidden"></canvas>
+
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.error('[PWA] SW erreur:', err));
+      });
+    }
+
+    // ---------- État ----------
+    const state = {
+      pages: [],      // { id, url, ocrText, enhanced }
+      docName: '',
+    };
+    let idCounter = 0;
+
+    function defaultDocName() {
+      const d = new Date();
+      const p = n => String(n).padStart(2,'0');
+      return `Document_${d.getFullYear()}${p(d.getMonth()+1)}${p(d.getDate())}_${p(d.getHours())}${p(d.getMinutes())}`;
+    }
+
+    function saveState() {
+      try {
+        // Les boîtes de mots OCR et les originaux ne sont pas persistés :
+        // ils sont volumineux et regénérables à la demande.
+        const light = state.pages.map(p => ({ id: p.id, url: p.url, ocrText: p.ocrText, enhanced: p.enhanced }));
+        localStorage.setItem('scannerpro_state', JSON.stringify({ pages: light, docName: state.docName }));
+      } catch (e) {
+        console.warn('Stockage local saturé — les pages ne seront pas conservées après fermeture', e);
+      }
+    }
+    function loadState() {
+      try {
+        const raw = localStorage.getItem('scannerpro_state');
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          state.pages = parsed.pages || [];
+          state.docName = parsed.docName || defaultDocName();
+          idCounter = state.pages.reduce((m,p)=>Math.max(m,p.id||0),0) + 1;
+        } else {
+          state.docName = defaultDocName();
+        }
+      } catch (e) { state.docName = defaultDocName(); }
+    }
+
+    // ---------- Éléments DOM ----------
+    const $ = id => document.getElementById(id);
+    const pagesGrid = $('pages-grid');
+    const gallerySection = $('gallery-section');
+    const emptyState = $('empty-state');
+    const pageCountChip = $('page-count-chip');
+    const docNameRow = $('docname-row');
+    const docNameInput = $('doc-name');
+    const clearAllBtn = $('clear-all-btn');
+    const fileInput = $('file-input');
+
+    const cameraModal = $('camera-modal');
+    const webcamFeed = $('webcam-feed');
+    const startCameraBtn = $('start-camera-btn');
+    const emptyScanBtn = $('empty-scan-btn');
+    const closeCameraBtn = $('close-camera-btn');
+    const captureBtn = $('capture-btn');
+    const flashOverlay = $('flash-overlay');
+    const camPageCount = $('cam-page-count');
+    const hiddenCanvas = $('hidden-canvas');
+
+    const signatureModal = $('signature-modal');
+    const openSignatureBtn = $('open-signature-btn');
+    const closeSignatureBtn = $('close-signature-btn');
+    const signaturePad = $('signature-pad');
+    const clearSignatureBtn = $('clear-signature-btn');
+    const saveSignatureBtn = $('save-signature-btn');
+    const sigAllPages = $('sig-all-pages');
+
+    const exportPdfBtn = $('export-pdf-btn');
+    const ocrBtn = $('ocr-btn');
+    const ocrSection = $('ocr-section');
+    const ocrTabs = $('ocr-tabs');
+    const ocrTextResult = $('ocr-text-result');
+    const ocrCopyBtn = $('ocr-copy-btn');
+    const ocrDownloadBtn = $('ocr-download-btn');
+
+    const toastContainer = $('toast-container');
+
+    let mediaStream = null;
+    let penColor = '#14171F';
+
+    // ---------- Toasts ----------
+    function showToast(message, kind = 'info') {
+      const colors = { info: 'bg-ink', success: 'bg-teal-600', error: 'bg-orange-600' };
+      const el = document.createElement('div');
+      el.className = `toast-anim pointer-events-auto ${colors[kind]||colors.info} text-white text-sm font-medium px-4 py-2.5 rounded-full shadow-lg max-w-[90vw] text-center`;
+      el.textContent = message;
+      toastContainer.appendChild(el);
+      setTimeout(() => { el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(), 300); }, 2600);
+    }
+
+    // ---------- Rendu galerie ----------
+    function renderGallery() {
+      const hasPages = state.pages.length > 0;
+      emptyState.classList.toggle('hidden', hasPages);
+      gallerySection.classList.toggle('hidden', !hasPages);
+      docNameRow.classList.toggle('hidden', !hasPages);
+      docNameRow.classList.toggle('flex', hasPages);
+      clearAllBtn.classList.toggle('hidden', !hasPages);
+      pageCountChip.classList.toggle('hidden', !hasPages);
+      pageCountChip.textContent = hasPages ? `${state.pages.length} page${state.pages.length>1?'s':''}` : '';
+      camPageCount.textContent = state.pages.length;
+      docNameInput.value = state.docName;
+
+      [ocrBtn, openSignatureBtn, exportPdfBtn].forEach(b => b.disabled = !hasPages);
+
+      pagesGrid.innerHTML = '';
+      state.pages.forEach((page, index) => {
+        const card = document.createElement('div');
+        card.className = 'relative bg-white border border-slate-200 rounded-2xl overflow-hidden shadow-card group';
+        card.innerHTML = `
+          <div class="relative">
+            <img src="${page.url}" data-act="edit" data-idx="${index}" class="w-full h-36 object-cover bg-slate-100 cursor-pointer" alt="Page ${index+1}" />
+            <span class="absolute top-2 left-2 font-mono text-[10px] bg-black/60 text-white px-1.5 py-0.5 rounded-full">${String(index+1).padStart(2,'0')}</span>
+            ${page.enhanced ? '<span class="absolute top-2 right-2 font-mono text-[9px] bg-teal-600 text-white px-1.5 py-0.5 rounded-full">N&B+</span>' : ''}
+            ${page.ocrWords && page.ocrWords.length ? `<span class="absolute bottom-2 left-2 font-mono text-[9px] px-1.5 py-0.5 rounded-full ${page.kind==='native'?'bg-teal-600 text-white':'bg-gold text-ink'}">${page.kind==='native'?'ÉDITABLE':'CORRIGEABLE'}</span>` : ''}
+          </div>
+          <div class="flex items-center justify-between px-1.5 py-1.5 border-t border-slate-100">
+            <button data-act="left" data-idx="${index}" class="p-1.5 text-slate-400 hover:text-indigo-600 disabled:opacity-20" ${index===0?'disabled':''} aria-label="Déplacer avant">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+            </button>
+            <button data-act="rotate" data-idx="${index}" class="p-1.5 text-slate-400 hover:text-indigo-600" aria-label="Pivoter">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+            </button>
+            <button data-act="enhance" data-idx="${index}" class="p-1.5 ${page.enhanced?'text-teal-600':'text-slate-400'} hover:text-teal-600" aria-label="Améliorer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+            </button>
+            <button data-act="right" data-idx="${index}" class="p-1.5 text-slate-400 hover:text-indigo-600 disabled:opacity-20" ${index===state.pages.length-1?'disabled':''} aria-label="Déplacer après">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+            <button data-act="delete" data-idx="${index}" class="p-1.5 text-slate-400 hover:text-orange-600" aria-label="Supprimer">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+            </button>
+          </div>`;
+        pagesGrid.appendChild(card);
+      });
+      saveState();
+    }
+
+    pagesGrid.addEventListener('click', async (e) => {
+      const thumb = e.target.closest('img[data-act="edit"]');
+      if (thumb) { openEditor(parseInt(thumb.dataset.idx, 10)); return; }
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const idx = parseInt(btn.dataset.idx, 10);
+      const act = btn.dataset.act;
+      if (act === 'delete') {
+        state.pages.splice(idx, 1);
+        renderGallery();
+      } else if (act === 'left' && idx > 0) {
+        [state.pages[idx-1], state.pages[idx]] = [state.pages[idx], state.pages[idx-1]];
+        renderGallery();
+      } else if (act === 'right' && idx < state.pages.length-1) {
+        [state.pages[idx+1], state.pages[idx]] = [state.pages[idx], state.pages[idx+1]];
+        renderGallery();
+      } else if (act === 'rotate') {
+        const page = state.pages[idx];
+        page.url = await rotateDataUrl(page.url, 90);
+        page.rawUrl = page.url;
+        // Les positions de mots ne sont plus valides après rotation
+        if (page.ocrWords) { page.ocrWords = undefined; page.kind = 'scan'; }
+        renderGallery();
+      } else if (act === 'enhance') {
+        const page = state.pages[idx];
+        page.enhanced = !page.enhanced;
+        page.url = await filterDataUrl(page.enhanced ? page.rawUrl || page.url : (page.rawUrl || page.url), page.enhanced);
+        if (!page.rawUrl) page.rawUrl = page.url;
+        renderGallery();
+      }
+    });
+
+    clearAllBtn.addEventListener('click', () => {
+      if (state.pages.length && !confirm('Effacer toutes les pages numérisées ?')) return;
+      state.pages = [];
+      renderGallery();
+    });
+
+    docNameInput.addEventListener('input', () => { state.docName = docNameInput.value; saveState(); });
+
+    function addPage(dataUrl, meta = {}) {
+      idCounter += 1;
+      const words = meta.words || [];
+      state.pages.push({
+        id: idCounter,
+        url: dataUrl,
+        rawUrl: dataUrl,
+        ocrText: words.length ? words.map(w => w.text).join(' ') : '',
+        ocrWords: words.length ? words : undefined,
+        kind: meta.kind || 'scan',   // 'native' = texte du PDF connu, 'scan' = image
+        enhanced: false,
+      });
+      renderGallery();
+    }
+
+    // Convertit la couche texte PDF.js en mots positionnés (mêmes champs que l'OCR).
+    // PDF.js renvoie des lignes entières : on les redécoupe en mots pour permettre
+    // une édition fine, et on résout la vraie police (disponible après le rendu).
+    function extractNativeWords(content, viewport, pdfPage) {
+      const meas = document.createElement('canvas').getContext('2d');
+      const out = [];
+
+      (content.items || []).forEach(item => {
+        const line = item.str || '';
+        if (!line.trim()) return;
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        const fontHeight = Math.hypot(tx[2], tx[3]);
+        const totalWidth = (item.width || 0) * viewport.scale;
+        if (fontHeight <= 0 || totalWidth <= 0) return;
+        const baseline = tx[5];
+
+        const info = resolveFont(pdfPage, item.fontName);
+        meas.font = `${info.italic ? 'italic ' : ''}${info.bold ? 'bold ' : ''}${fontHeight}px ${info.family}`;
+
+        // Répartir la largeur réelle de la ligne proportionnellement aux mots
+        const natural = meas.measureText(line).width;
+        const ratio = natural > 0 ? totalWidth / natural : 1;
+        let cursor = tx[4];
+
+        line.split(/(\s+)/).forEach(part => {
+          if (!part) return;
+          const partWidth = meas.measureText(part).width * ratio;
+          if (part.trim()) {
+            out.push({
+              text: part,
+              x0: cursor,
+              y0: baseline - fontHeight * 0.82,
+              x1: cursor + partWidth,
+              y1: baseline + fontHeight * 0.20,
+              fontName: info.name,
+              fontFamily: info.family,
+              bold: info.bold,
+              italic: info.italic,
+              fontPx: fontHeight,
+              baseline,
+            });
+          }
+          cursor += partWidth;
+        });
+      });
+      return out;
+    }
+
+    // Récupère le nom réel de la police (Helvetica-Bold, Times-Roman…).
+    // Disponible uniquement une fois la page rendue.
+    function resolveFont(pdfPage, fontRef) {
+      let name = '', fallback = '', italic = false;
+      try {
+        const f = pdfPage.commonObjs.get(fontRef);
+        if (f) { name = f.name || ''; fallback = f.fallbackName || ''; italic = !!f.italic; }
+      } catch (e) { /* police non résolue : on retombe sur les heuristiques */ }
+
+      const n = (name + ' ' + fallback).toLowerCase();
+      const bold = /bold|black|heavy|semibold/.test(n);
+      italic = italic || /italic|oblique/.test(n);
+      let family = 'Helvetica, Arial, sans-serif';
+      if (/times|roman|georgia|garamond|book|serif/.test(n) && !/sans-serif/.test(n)) {
+        family = '"Times New Roman", Times, serif';
+      } else if (/courier|mono/.test(n)) {
+        family = '"Courier New", Courier, monospace';
+      }
+      return { name: name || fontRef || '', family, bold, italic };
+    }
+
+    // ---------- Import fichiers ----------
+    fileInput.addEventListener('change', async (e) => {
+      const files = Array.from(e.target.files);
+      let added = 0;
+      for (const file of files) {
+        if (file.type.startsWith('image/')) {
+          const dataUrl = await fileToDataUrl(file);
+          addPage(dataUrl);
+          added++;
+        } else if (file.type === 'application/pdf') {
+          pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+          const arrayBuffer = await file.arrayBuffer();
+          const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            // Résolution plus élevée : la page vient d'un PDF, on veut du texte net
+            const viewport = page.getViewport({ scale: 2.5 });
+            const canvas = document.createElement('canvas');
+            canvas.width = viewport.width; canvas.height = viewport.height;
+            await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+
+            // Extraction de la couche texte native (police, taille, position connues)
+            let words = [];
+            try {
+              const content = await page.getTextContent();
+              words = extractNativeWords(content, viewport, page);
+            } catch (err) { words = []; }
+
+            addPage(canvas.toDataURL('image/jpeg', 0.92), {
+              kind: words.length ? 'native' : 'scan',
+              words,
+            });
+            added++;
+          }
+        }
+      }
+      if (added) showToast(`${added} page${added>1?'s':''} importée${added>1?'s':''}`, 'success');
+      fileInput.value = '';
+    });
+
+    function fileToDataUrl(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = evt => resolve(evt.target.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // ---------- Caméra ----------
+    async function openCamera() {
+      try {
+        mediaStream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { ideal: 'environment' }, width: { ideal: 1920 }, height: { ideal: 1080 } }
+        });
+        webcamFeed.srcObject = mediaStream;
+        cameraModal.classList.remove('hidden');
+      } catch (err) {
+        showToast("Impossible d'accéder à la caméra", 'error');
+      }
+    }
+    startCameraBtn.addEventListener('click', openCamera);
+    emptyScanBtn.addEventListener('click', openCamera);
+
+    function stopCamera() {
+      if (mediaStream) { mediaStream.getTracks().forEach(t => t.stop()); mediaStream = null; }
+      cameraModal.classList.add('hidden');
+    }
+    closeCameraBtn.addEventListener('click', stopCamera);
+
+    captureBtn.addEventListener('click', () => {
+      if (!webcamFeed.videoWidth) return;
+      hiddenCanvas.width = webcamFeed.videoWidth;
+      hiddenCanvas.height = webcamFeed.videoHeight;
+      hiddenCanvas.getContext('2d').drawImage(webcamFeed, 0, 0);
+      const shot = hiddenCanvas.toDataURL('image/jpeg', 0.92);
+      flashOverlay.classList.remove('flash-anim'); void flashOverlay.offsetWidth;
+      flashOverlay.classList.add('flash-anim');
+      stopCamera();
+      openCropEditor(shot);
+    });
+
+    // ---------- Édition de texte (PDF natif & scan) ----------
+    const editModal = $('edit-modal');
+    const editCanvas = $('edit-canvas');
+    const editBoxes = $('edit-boxes');
+    const editHint = $('edit-hint');
+    const editBadge = $('edit-mode-badge');
+    const editCloseBtn = $('edit-close-btn');
+    const editApplyBtn = $('edit-apply-btn');
+    const editUndoBtn = $('edit-undo-btn');
+    const editToggleBoxes = $('edit-toggle-boxes');
+    const editSheet = $('edit-input-sheet');
+    const editInput = $('edit-input');
+    const editInputMeta = $('edit-input-meta');
+
+    const editState = { pageIndex: -1, words: [], scale: 1, history: [], activeWord: -1, boxesVisible: true };
+
+    function openEditor(pageIndex) {
+      const page = state.pages[pageIndex];
+      if (!page) return;
+      const words = page.ocrWords || [];
+      if (!words.length) {
+        showToast("Lancez d'abord l'OCR pour repérer le texte", 'error');
+        return;
+      }
+
+      const img = new Image();
+      img.onload = () => {
+        editState.pageIndex = pageIndex;
+        editState.words = JSON.parse(JSON.stringify(words));
+        editState.history = [];
+        editState.activeWord = -1;
+
+        const maxW = Math.min(window.innerWidth - 24, 900);
+        const maxH = window.innerHeight * 0.58;
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        editState.scale = scale;
+
+        // Canvas de travail à pleine résolution (les édits sont appliqués dessus)
+        editState.work = document.createElement('canvas');
+        editState.work.width = img.width;
+        editState.work.height = img.height;
+        editState.work.getContext('2d').drawImage(img, 0, 0);
+
+        editCanvas.width = img.width * scale;
+        editCanvas.height = img.height * scale;
+        refreshEditCanvas();
+
+        const isNative = page.kind === 'native';
+        editBadge.textContent = isNative ? 'TEXTE ÉDITABLE' : 'SCAN — CORRECTION';
+        editBadge.className = 'font-mono text-[10px] px-2 py-1 rounded-full ' +
+          (isNative ? 'bg-teal-600 text-white' : 'bg-gold text-ink');
+        editHint.textContent = isNative
+          ? 'Police et taille lues dans le PDF — touchez un mot pour le modifier'
+          : 'Zone recouverte puis réécrite — la police d\'origine ne peut pas être reproduite';
+
+        editModal.classList.remove('hidden');
+        drawEditBoxes();
+      };
+      img.src = page.url;
+    }
+
+    function refreshEditCanvas() {
+      const ctx = editCanvas.getContext('2d');
+      ctx.clearRect(0, 0, editCanvas.width, editCanvas.height);
+      ctx.drawImage(editState.work, 0, 0, editCanvas.width, editCanvas.height);
+    }
+
+    function drawEditBoxes() {
+      if (!editState.boxesVisible) { editBoxes.innerHTML = ''; return; }
+      const s = editState.scale;
+      editBoxes.innerHTML = editState.words.map((w, i) => {
+        const left = w.x0 * s, top = w.y0 * s;
+        const width = (w.x1 - w.x0) * s, height = (w.y1 - w.y0) * s;
+        const edited = w.edited ? 'background:rgba(0,194,168,0.22);border-color:#00C2A8;' : '';
+        return `<button data-wi="${i}" style="position:absolute;left:${left}px;top:${top}px;width:${width}px;height:${height}px;
+          border:1px solid rgba(59,91,255,0.65);background:rgba(59,91,255,0.10);border-radius:2px;${edited}"></button>`;
+      }).join('');
+    }
+
+    editBoxes.addEventListener('click', (e) => {
+      const btn = e.target.closest('button[data-wi]');
+      if (!btn) return;
+      const i = parseInt(btn.dataset.wi, 10);
+      editState.activeWord = i;
+      const w = editState.words[i];
+      editInput.value = w.text;
+      editInputMeta.textContent = `${Math.round(w.fontPx || (w.y1 - w.y0) * 1.15)}px${w.fontName ? ' · ' + shortFont(w.fontName) : ''}`;
+      editSheet.classList.remove('hidden');
+      editInput.focus();
+      editInput.select();
+    });
+
+    function shortFont(name) {
+      return String(name).replace(/^[A-Z]{6}\+/, '').replace(/[-_].*$/, '').slice(0, 14);
+    }
+
+    // Police à utiliser pour réécrire : celle lue dans le PDF si disponible,
+    // sinon déduite du nom, sinon police neutre (cas d'un scan).
+    function cssFontFor(word) {
+      if (word.fontFamily) {
+        return { family: word.fontFamily, bold: !!word.bold, italic: !!word.italic };
+      }
+      const n = String(word.fontName || '').toLowerCase();
+      const bold = /bold|black|heavy|semibold/.test(n);
+      const italic = /italic|oblique/.test(n);
+      let family = 'Helvetica, Arial, sans-serif';
+      if (/times|roman|georgia|garamond|book/.test(n)) family = '"Times New Roman", Times, serif';
+      else if (/courier|mono/.test(n)) family = '"Courier New", Courier, monospace';
+      return { family, bold, italic };
+    }
+
+    // Détermine la taille de police et la ligne de base à utiliser.
+    // PDF natif : valeurs exactes. Scan : déduites des métriques réelles du mot
+    // d'origine (une boîte OCR de chiffres n'a ni hampe ni jambage, donc sa
+    // hauteur ne vaut pas la taille de police).
+    function fitTextMetrics(ctx, w, family, bold, italic) {
+      if (w.fontPx && w.baseline) return { size: w.fontPx, baseline: w.baseline };
+      const boxH = w.y1 - w.y0;
+      const probe = 100;
+      const sample = w.text || 'X';
+      const saved = ctx.font;
+      ctx.font = `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${probe}px ${family}`;
+      const m = ctx.measureText(sample);
+      ctx.font = saved;
+      const asc = m.actualBoundingBoxAscent || probe * 0.72;
+      const desc = m.actualBoundingBoxDescent || 0;
+      const h = asc + desc;
+      const size = h > 0 ? (probe * boxH) / h : boxH;
+      return { size, baseline: w.y0 + asc * (size / probe) };
+    }
+
+    // Couleur de fond dominante autour d'une zone (pour recouvrir proprement)
+    function sampleBackground(ctx, w) {
+      const pad = 3;
+      const x = Math.max(0, Math.floor(w.x0 - pad));
+      const y = Math.max(0, Math.floor(w.y0 - pad));
+      const width = Math.min(ctx.canvas.width - x, Math.ceil(w.x1 - w.x0 + pad * 2));
+      const height = Math.min(ctx.canvas.height - y, Math.ceil(w.y1 - w.y0 + pad * 2));
+      if (width <= 0 || height <= 0) return { bg: '#ffffff', fg: '#000000' };
+      const data = ctx.getImageData(x, y, width, height).data;
+
+      // Le fond = pixels les plus clairs (le texte est plus sombre)
+      const lum = [];
+      for (let i = 0; i < data.length; i += 4) {
+        lum.push({ l: 0.299 * data[i] + 0.587 * data[i+1] + 0.114 * data[i+2], i });
+      }
+      lum.sort((a, b) => a.l - b.l);
+      const light = lum[Math.floor(lum.length * 0.88)];
+      const dark = lum[Math.floor(lum.length * 0.04)];
+      const px = k => `rgb(${data[k]},${data[k+1]},${data[k+2]})`;
+      return { bg: px(light.i), fg: px(dark.i) };
+    }
+
+    function applyWordEdit(index, newText) {
+      const ctx = editState.work.getContext('2d');
+      const w = editState.words[index];
+      editState.history.push({ index, previous: { ...w }, snapshot: editState.work.toDataURL('image/jpeg', 0.95) });
+      editUndoBtn.disabled = false;
+
+      const { bg, fg } = sampleBackground(ctx, w);
+      const pad = 2;
+      // 1) recouvrir l'ancien texte avec la couleur de fond échantillonnée
+      ctx.fillStyle = bg;
+      ctx.fillRect(w.x0 - pad, w.y0 - pad, (w.x1 - w.x0) + pad * 2, (w.y1 - w.y0) + pad * 2);
+
+      if (newText) {
+        // 2) réécrire dans la police déduite, à la taille d'origine
+        const { family, bold, italic } = cssFontFor(w);
+        const fit = fitTextMetrics(ctx, w, family, bold, italic);
+        const size = fit.size;
+        const baseline = fit.baseline;
+        ctx.fillStyle = w.color || fg;
+        ctx.textBaseline = 'alphabetic';
+        ctx.font = `${italic ? 'italic ' : ''}${bold ? 'bold ' : ''}${size}px ${family}`;
+        // Compresser si le nouveau texte est plus long que la place disponible
+        const available = (w.x1 - w.x0) * 1.6;
+        const measured = ctx.measureText(newText).width;
+        ctx.save();
+        if (measured > available && measured > 0) {
+          ctx.translate(w.x0, baseline);
+          ctx.scale(available / measured, 1);
+          ctx.fillText(newText, 0, 0);
+        } else {
+          ctx.fillText(newText, w.x0, baseline);
+        }
+        ctx.restore();
+        w.x1 = w.x0 + Math.min(measured, available);
+      }
+
+      w.text = newText;
+      w.edited = true;
+      refreshEditCanvas();
+      drawEditBoxes();
+    }
+
+    $('edit-input-ok').addEventListener('click', () => {
+      if (editState.activeWord < 0) return;
+      applyWordEdit(editState.activeWord, editInput.value.trim());
+      editSheet.classList.add('hidden');
+    });
+    $('edit-input-delete').addEventListener('click', () => {
+      if (editState.activeWord < 0) return;
+      applyWordEdit(editState.activeWord, '');
+      editSheet.classList.add('hidden');
+    });
+    $('edit-input-cancel').addEventListener('click', () => editSheet.classList.add('hidden'));
+    editInput.addEventListener('keydown', e => { if (e.key === 'Enter') $('edit-input-ok').click(); });
+
+    editUndoBtn.addEventListener('click', () => {
+      const last = editState.history.pop();
+      if (!last) return;
+      const img = new Image();
+      img.onload = () => {
+        editState.work.getContext('2d').drawImage(img, 0, 0);
+        editState.words[last.index] = last.previous;
+        refreshEditCanvas();
+        drawEditBoxes();
+        editUndoBtn.disabled = editState.history.length === 0;
+      };
+      img.src = last.snapshot;
+    });
+
+    editToggleBoxes.addEventListener('click', () => {
+      editState.boxesVisible = !editState.boxesVisible;
+      editToggleBoxes.textContent = editState.boxesVisible ? 'Masquer les zones' : 'Afficher les zones';
+      drawEditBoxes();
+    });
+
+    editCloseBtn.addEventListener('click', () => {
+      editModal.classList.add('hidden');
+      editSheet.classList.add('hidden');
+    });
+
+    editApplyBtn.addEventListener('click', () => {
+      const page = state.pages[editState.pageIndex];
+      if (!page) return;
+      page.url = editState.work.toDataURL('image/jpeg', 0.94);
+      page.rawUrl = page.url;
+      // La couche cherchable suit les modifications
+      page.ocrWords = editState.words.filter(w => w.text);
+      page.ocrText = page.ocrWords.map(w => w.text).join(' ');
+      editModal.classList.add('hidden');
+      editSheet.classList.add('hidden');
+      renderGallery();
+      if (!ocrSection.classList.contains('hidden')) renderOcrTabs();
+      showToast('Modifications enregistrées', 'success');
+    });
+
+    // ---------- Détection de bords & recadrage perspectif ----------
+    const cropModal = $('crop-modal');
+    const cropCanvas = $('crop-canvas');
+    const cropOverlay = $('crop-overlay');
+    const cropStage = $('crop-stage');
+    const cropApplyBtn = $('crop-apply-btn');
+    const cropCancelBtn = $('crop-cancel-btn');
+    const cropAutoBtn = $('crop-auto-btn');
+    const cropResetBtn = $('crop-reset-btn');
+    const cropHint = $('crop-hint');
+
+    const cropState = { img: null, corners: [], scale: 1, dragIndex: -1 };
+
+    function cvReady() {
+      return typeof cv !== 'undefined' && cv && typeof cv.Mat === 'function';
+    }
+
+    // Si l'utilisateur photographie avant la fin du chargement d'OpenCV,
+    // on relance la détection dès qu'il devient disponible.
+    document.addEventListener('opencv-ready', () => {
+      if (!cropModal.classList.contains('hidden') && !cropState.userAdjusted) {
+        autoDetect();
+      }
+    });
+
+    function openCropEditor(dataUrl) {
+      const img = new Image();
+      img.onload = () => {
+        cropState.img = img;
+        // Adapter l'affichage à l'écran
+        const maxW = Math.min(window.innerWidth - 24, 900);
+        const maxH = window.innerHeight * 0.62;
+        const scale = Math.min(maxW / img.width, maxH / img.height, 1);
+        cropState.scale = scale;
+        cropCanvas.width = img.width * scale;
+        cropCanvas.height = img.height * scale;
+        cropCanvas.getContext('2d').drawImage(img, 0, 0, cropCanvas.width, cropCanvas.height);
+        cropOverlay.setAttribute('viewBox', `0 0 ${cropCanvas.width} ${cropCanvas.height}`);
+
+        cropState.userAdjusted = false;
+        cropModal.classList.remove('hidden');
+        autoDetect();
+      };
+      img.src = dataUrl;
+    }
+
+    function fullFrameCorners() {
+      const w = cropCanvas.width, h = cropCanvas.height;
+      const m = 0.04;
+      return [
+        { x: w*m, y: h*m }, { x: w*(1-m), y: h*m },
+        { x: w*(1-m), y: h*(1-m) }, { x: w*m, y: h*(1-m) }
+      ];
+    }
+
+    function autoDetect() {
+      if (!cvReady()) {
+        cropState.corners = fullFrameCorners();
+        cropHint.textContent = window.__cvState === 'failed'
+          ? 'Détection auto indisponible — ajustez les coins manuellement'
+          : 'Chargement de la détection… ajustez les coins entre-temps';
+        drawOverlay();
+        return;
+      }
+      try {
+        const detected = detectDocumentCorners();
+        if (detected) {
+          cropState.corners = detected;
+          cropHint.textContent = 'Bords détectés — ajustez si nécessaire';
+        } else {
+          cropState.corners = fullFrameCorners();
+          cropHint.textContent = 'Aucun bord net détecté — cadrez manuellement';
+        }
+      } catch (e) {
+        cropState.corners = fullFrameCorners();
+        cropHint.textContent = 'Cadrez manuellement en déplaçant les coins';
+      }
+      drawOverlay();
+    }
+
+    function detectDocumentCorners() {
+      const src = cv.imread(cropCanvas);
+      const gray = new cv.Mat(), blur = new cv.Mat(), edges = new cv.Mat();
+      const contours = new cv.MatVector(), hierarchy = new cv.Mat();
+      let result = null;
+      try {
+        cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+        cv.GaussianBlur(gray, blur, new cv.Size(5,5), 0);
+        cv.Canny(blur, edges, 60, 180);
+        const kernel = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3,3));
+        cv.dilate(edges, edges, kernel);
+        kernel.delete();
+        cv.findContours(edges, contours, hierarchy, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+
+        const frameArea = cropCanvas.width * cropCanvas.height;
+        let best = null, bestArea = 0;
+        for (let i = 0; i < contours.size(); i++) {
+          const c = contours.get(i);
+          const peri = cv.arcLength(c, true);
+          const approx = new cv.Mat();
+          cv.approxPolyDP(c, approx, 0.02 * peri, true);
+          const area = Math.abs(cv.contourArea(approx));
+          if (approx.rows === 4 && area > bestArea && area > frameArea * 0.18 && cv.isContourConvex(approx)) {
+            bestArea = area;
+            if (best) best.delete();
+            best = approx;
+          } else {
+            approx.delete();
+          }
+          c.delete();
+        }
+        if (best) {
+          const pts = [];
+          for (let i = 0; i < 4; i++) {
+            pts.push({ x: best.data32S[i*2], y: best.data32S[i*2+1] });
+          }
+          best.delete();
+          result = orderCorners(pts);
+        }
+      } finally {
+        src.delete(); gray.delete(); blur.delete(); edges.delete();
+        contours.delete(); hierarchy.delete();
+      }
+      return result;
+    }
+
+    // Ordonne : haut-gauche, haut-droite, bas-droite, bas-gauche
+    function orderCorners(pts) {
+      const cx = pts.reduce((s,p)=>s+p.x,0)/4;
+      const cy = pts.reduce((s,p)=>s+p.y,0)/4;
+      const tl = pts.filter(p=>p.x<=cx && p.y<=cy)[0];
+      const tr = pts.filter(p=>p.x> cx && p.y<=cy)[0];
+      const br = pts.filter(p=>p.x> cx && p.y> cy)[0];
+      const bl = pts.filter(p=>p.x<=cx && p.y> cy)[0];
+      if (tl && tr && br && bl) return [tl, tr, br, bl];
+      // repli : tri par angle autour du centre
+      return [...pts].sort((a,b)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(b.y-cy,b.x-cx));
+    }
+
+    function drawOverlay() {
+      const c = cropState.corners;
+      if (!c.length) return;
+      const poly = c.map(p=>`${p.x},${p.y}`).join(' ');
+      const handles = c.map((p,i)=>`<circle class="crop-handle" data-i="${i}" cx="${p.x}" cy="${p.y}" r="11"/>`).join('');
+      cropOverlay.innerHTML = `<polygon class="crop-edge" points="${poly}"/>${handles}`;
+    }
+
+    function stagePos(e) {
+      const rect = cropCanvas.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return {
+        x: (clientX - rect.left) * (cropCanvas.width / rect.width),
+        y: (clientY - rect.top) * (cropCanvas.height / rect.height)
+      };
+    }
+
+    function onCropDown(e) {
+      const pos = stagePos(e);
+      let nearest = -1, minDist = 34;
+      cropState.corners.forEach((p, i) => {
+        const d = Math.hypot(p.x-pos.x, p.y-pos.y);
+        if (d < minDist) { minDist = d; nearest = i; }
+      });
+      cropState.dragIndex = nearest;
+      if (nearest >= 0) { cropState.userAdjusted = true; e.preventDefault(); }
+    }
+    function onCropMove(e) {
+      if (cropState.dragIndex < 0) return;
+      e.preventDefault();
+      const pos = stagePos(e);
+      cropState.corners[cropState.dragIndex] = {
+        x: Math.max(0, Math.min(cropCanvas.width, pos.x)),
+        y: Math.max(0, Math.min(cropCanvas.height, pos.y))
+      };
+      drawOverlay();
+    }
+    function onCropUp() { cropState.dragIndex = -1; }
+
+    cropStage.addEventListener('mousedown', onCropDown);
+    window.addEventListener('mousemove', onCropMove);
+    window.addEventListener('mouseup', onCropUp);
+    cropStage.addEventListener('touchstart', onCropDown, { passive:false });
+    cropStage.addEventListener('touchmove', onCropMove, { passive:false });
+    cropStage.addEventListener('touchend', onCropUp);
+
+    cropAutoBtn.addEventListener('click', autoDetect);
+    cropResetBtn.addEventListener('click', () => {
+      cropState.corners = fullFrameCorners();
+      cropHint.textContent = 'Cadre complet — ajustez les coins si besoin';
+      drawOverlay();
+    });
+    cropCancelBtn.addEventListener('click', () => {
+      cropModal.classList.add('hidden');
+      cropState.img = null;
+    });
+
+    cropApplyBtn.addEventListener('click', () => {
+      const result = applyPerspective();
+      cropModal.classList.add('hidden');
+      cropState.img = null;
+      if (result) {
+        addPage(result);
+        showToast(`Page ${state.pages.length} ajoutée`, 'success');
+      }
+    });
+
+    function applyPerspective() {
+      const img = cropState.img;
+      if (!img) return null;
+      const inv = 1 / cropState.scale;
+      const src = cropState.corners.map(p => ({ x: p.x * inv, y: p.y * inv }));
+
+      // Dimensions cibles = moyenne des côtés opposés
+      const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
+      const widthTarget  = Math.round((dist(src[0],src[1]) + dist(src[3],src[2])) / 2);
+      const heightTarget = Math.round((dist(src[0],src[3]) + dist(src[1],src[2])) / 2);
+      if (widthTarget < 20 || heightTarget < 20) return null;
+
+      if (cvReady()) {
+        const tmp = document.createElement('canvas');
+        tmp.width = img.width; tmp.height = img.height;
+        tmp.getContext('2d').drawImage(img, 0, 0);
+        const srcMat = cv.imread(tmp);
+        const dstMat = new cv.Mat();
+        const srcTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          src[0].x, src[0].y, src[1].x, src[1].y, src[2].x, src[2].y, src[3].x, src[3].y
+        ]);
+        const dstTri = cv.matFromArray(4, 1, cv.CV_32FC2, [
+          0, 0, widthTarget, 0, widthTarget, heightTarget, 0, heightTarget
+        ]);
+        const M = cv.getPerspectiveTransform(srcTri, dstTri);
+        cv.warpPerspective(srcMat, dstMat, M, new cv.Size(widthTarget, heightTarget),
+                           cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255,255,255,255));
+        const out = document.createElement('canvas');
+        cv.imshow(out, dstMat);
+        srcMat.delete(); dstMat.delete(); srcTri.delete(); dstTri.delete(); M.delete();
+        return out.toDataURL('image/jpeg', 0.92);
+      }
+
+      // Repli sans OpenCV : recadrage rectangulaire simple
+      const xs = src.map(p=>p.x), ys = src.map(p=>p.y);
+      const x0 = Math.min(...xs), y0 = Math.min(...ys);
+      const w = Math.max(...xs) - x0, h = Math.max(...ys) - y0;
+      const out = document.createElement('canvas');
+      out.width = w; out.height = h;
+      out.getContext('2d').drawImage(img, x0, y0, w, h, 0, 0, w, h);
+      return out.toDataURL('image/jpeg', 0.92);
+    }
+
+    // ---------- Rotation / amélioration ----------
+    function rotateDataUrl(dataUrl, deg) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const rad = deg * Math.PI / 180;
+          const swap = deg % 180 !== 0;
+          const w = swap ? img.height : img.width;
+          const h = swap ? img.width : img.height;
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          const ctx = canvas.getContext('2d');
+          ctx.translate(w/2, h/2);
+          ctx.rotate(rad);
+          ctx.drawImage(img, -img.width/2, -img.height/2);
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        img.src = dataUrl;
+      });
+    }
+
+    function filterDataUrl(dataUrl, enhance) {
+      return new Promise(resolve => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          canvas.width = img.width; canvas.height = img.height;
+          const ctx = canvas.getContext('2d');
+          ctx.filter = enhance ? 'grayscale(1) contrast(1.45) brightness(1.08)' : 'none';
+          ctx.drawImage(img, 0, 0);
+          resolve(canvas.toDataURL('image/jpeg', 0.92));
+        };
+        img.src = dataUrl;
+      });
+    }
+
+    // ---------- Export PDF ----------
+    exportPdfBtn.addEventListener('click', () => {
+      if (!state.pages.length) return;
+      const { jsPDF } = window.jspdf;
+      const doc = new jsPDF();
+      let searchablePages = 0;
+
+      state.pages.forEach((page, idx) => {
+        if (idx > 0) doc.addPage();
+        const props = doc.getImageProperties(page.url);
+        const pdfWidth = doc.internal.pageSize.getWidth();
+        const pdfHeight = (props.height * pdfWidth) / props.width;
+        doc.addImage(page.url, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+
+        // Couche de texte invisible : le PDF devient cherchable et copiable
+        if (page.ocrWords && page.ocrWords.length) {
+          const ratio = pdfWidth / props.width;
+          doc.setTextColor(0, 0, 0);
+          page.ocrWords.forEach(w => {
+            const boxW = (w.x1 - w.x0) * ratio;
+            const boxH = (w.y1 - w.y0) * ratio;
+            if (boxW <= 0 || boxH <= 0 || !w.text.trim()) return;
+            const fontSize = Math.max(1, boxH * 2.6);
+            doc.setFontSize(fontSize);
+            const naturalW = doc.getTextWidth(w.text);
+            const scaleX = naturalW > 0 ? (boxW / naturalW) * 100 : 100;
+            doc.text(w.text, w.x0 * ratio, w.y1 * ratio, {
+              renderingMode: 'invisible',
+              horizontalScale: scaleX,
+            });
+          });
+          searchablePages++;
+        }
+      });
+
+      const name = (state.docName || defaultDocName()).replace(/[^a-zA-Z0-9_\-]/g, '_');
+      doc.save(`${name}.pdf`);
+      showToast(
+        searchablePages > 0
+          ? `PDF exporté — ${searchablePages}/${state.pages.length} page(s) cherchable(s)`
+          : 'PDF exporté — lancez l\'OCR pour un PDF cherchable',
+        'success'
+      );
+    });
+
+    // ---------- OCR ----------
+    let currentOcrTabIndex = 0;
+    ocrBtn.addEventListener('click', async () => {
+      if (!state.pages.length) return;
+      ocrBtn.disabled = true;
+      const originalHTML = ocrBtn.innerHTML;
+      try {
+        const worker = await Tesseract.createWorker('fra');
+        for (let i = 0; i < state.pages.length; i++) {
+          ocrBtn.innerHTML = `<span class="text-[10px] font-mono">${i+1}/${state.pages.length}</span>`;
+          const ret = await worker.recognize(state.pages[i].url, {}, { text: true, blocks: true });
+          state.pages[i].ocrText = (ret.data.text || '').trim();
+          state.pages[i].ocrWords = extractWords(ret.data);
+        }
+        await worker.terminate();
+        renderOcrTabs();
+        ocrSection.classList.remove('hidden');
+        ocrSection.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        showToast('Texte extrait de toutes les pages', 'success');
+      } catch (err) {
+        showToast("Erreur lors de l'OCR : " + err.message, 'error');
+      } finally {
+        ocrBtn.disabled = false;
+        ocrBtn.innerHTML = originalHTML;
+      }
+    });
+
+    // Récupère les mots et leurs positions, quelle que soit la forme de la
+    // réponse Tesseract (words à plat ou imbriqués dans blocks/paragraphs/lines)
+    function extractWords(data) {
+      const out = [];
+      const push = (w) => {
+        if (!w || !w.bbox || !w.text) return;
+        if (w.confidence !== undefined && w.confidence < 40) return;
+        out.push({ text: w.text, x0: w.bbox.x0, y0: w.bbox.y0, x1: w.bbox.x1, y1: w.bbox.y1 });
+      };
+      if (Array.isArray(data.words) && data.words.length) {
+        data.words.forEach(push);
+        return out;
+      }
+      (data.blocks || []).forEach(block => {
+        (block.paragraphs || []).forEach(par => {
+          (par.lines || []).forEach(line => {
+            (line.words || []).forEach(push);
+          });
+        });
+      });
+      return out;
+    }
+
+    function renderOcrTabs() {
+      ocrTabs.innerHTML = '';
+      state.pages.forEach((page, idx) => {
+        const tab = document.createElement('button');
+        tab.className = `px-3 py-1.5 text-xs font-mono border-b-2 border-transparent text-slate-500 whitespace-nowrap ${idx===currentOcrTabIndex?'tab-active':''}`;
+        tab.textContent = `Page ${idx+1}`;
+        tab.addEventListener('click', () => { currentOcrTabIndex = idx; renderOcrTabs(); });
+        ocrTabs.appendChild(tab);
+      });
+      ocrTextResult.value = state.pages[currentOcrTabIndex]?.ocrText || '(aucun texte détecté)';
+    }
+
+    ocrCopyBtn.addEventListener('click', () => {
+      navigator.clipboard.writeText(ocrTextResult.value).then(() => showToast('Copié', 'success'));
+    });
+    ocrDownloadBtn.addEventListener('click', () => {
+      const full = state.pages.map((p,i) => `--- Page ${i+1} ---\n${p.ocrText || ''}`).join('\n\n');
+      const blob = new Blob([full], { type: 'text/plain;charset=utf-8' });
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `${(state.docName||defaultDocName()).replace(/[^a-zA-Z0-9_\-]/g,'_')}.txt`;
+      a.click();
+    });
+
+    // ---------- Signature ----------
+    const sigCtx = signaturePad.getContext('2d');
+    let isDrawing = false;
+
+    function getPos(e) {
+      const rect = signaturePad.getBoundingClientRect();
+      const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+      const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+      return { x: (clientX - rect.left) * (signaturePad.width/rect.width), y: (clientY - rect.top) * (signaturePad.height/rect.height) };
+    }
+    function startDrawing(e) { isDrawing = true; const pos = getPos(e); sigCtx.beginPath(); sigCtx.moveTo(pos.x, pos.y); }
+    function draw(e) {
+      if (!isDrawing) return;
+      e.preventDefault();
+      const pos = getPos(e);
+      sigCtx.lineTo(pos.x, pos.y);
+      sigCtx.strokeStyle = penColor;
+      sigCtx.lineWidth = 3;
+      sigCtx.lineCap = 'round';
+      sigCtx.stroke();
+    }
+    function stopDrawing() { isDrawing = false; }
+    signaturePad.addEventListener('mousedown', startDrawing);
+    signaturePad.addEventListener('mousemove', draw);
+    window.addEventListener('mouseup', stopDrawing);
+    signaturePad.addEventListener('touchstart', startDrawing, { passive: false });
+    signaturePad.addEventListener('touchmove', draw, { passive: false });
+    signaturePad.addEventListener('touchend', stopDrawing);
+
+    document.querySelectorAll('.pen-swatch').forEach(sw => {
+      sw.addEventListener('click', () => {
+        penColor = sw.dataset.color;
+        document.querySelectorAll('.pen-swatch').forEach(s => s.classList.remove('ring-ink','ring-indigo-600'));
+        sw.classList.add(sw.dataset.color === '#3B5BFF' ? 'ring-indigo-600' : 'ring-ink');
+      });
+    });
+
+    openSignatureBtn.addEventListener('click', () => {
+      if (!state.pages.length) return;
+      sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height);
+      signatureModal.classList.remove('hidden');
+    });
+    closeSignatureBtn.addEventListener('click', () => signatureModal.classList.add('hidden'));
+    clearSignatureBtn.addEventListener('click', () => sigCtx.clearRect(0, 0, signaturePad.width, signaturePad.height));
+
+    saveSignatureBtn.addEventListener('click', async () => {
+      if (!state.pages.length) return;
+      const sigDataUrl = signaturePad.toDataURL('image/png');
+      const targets = sigAllPages.checked ? state.pages.map((_,i)=>i) : [state.pages.length - 1];
+      for (const idx of targets) {
+        state.pages[idx].url = await composeSignature(state.pages[idx].url, sigDataUrl);
+        state.pages[idx].rawUrl = state.pages[idx].url;
+      }
+      renderGallery();
+      signatureModal.classList.add('hidden');
+      showToast('Signature appliquée', 'success');
+    });
+
+    function composeSignature(baseUrl, sigUrl) {
+      return new Promise(resolve => {
+        const baseImg = new Image();
+        baseImg.onload = () => {
+          const sigImg = new Image();
+          sigImg.onload = () => {
+            hiddenCanvas.width = baseImg.width; hiddenCanvas.height = baseImg.height;
+            const ctx = hiddenCanvas.getContext('2d');
+            ctx.drawImage(baseImg, 0, 0);
+            const sigWidth = baseImg.width * 0.3;
+            const sigHeight = (sigImg.height * sigWidth) / sigImg.width;
+            ctx.drawImage(sigImg, baseImg.width - sigWidth - 20, baseImg.height - sigHeight - 20, sigWidth, sigHeight);
+            resolve(hiddenCanvas.toDataURL('image/jpeg', 0.92));
+          };
+          sigImg.src = sigUrl;
+        };
+        baseImg.src = baseUrl;
+      });
+    }
+
+    // ---------- Init ----------
+    loadState();
+    renderGallery();
+  </script>
+</body>
+</html>
