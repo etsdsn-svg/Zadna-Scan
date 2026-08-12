@@ -20,7 +20,9 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<!-- OCR (Tesseract.js) retiré pour le moment à la demande — l'édition de texte
+     reste disponible sur les PDF natifs importés, qui portent déjà leurs
+     positions de mots sans passer par l'OCR. -->
 <script>
   // OpenCV s'initialise en asynchrone : le chargement du script ne suffit pas.
   window.CV = { state: 'loading' };
@@ -126,11 +128,6 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
         </span><span class="text-[10px] font-medium text-left">Signer</span>
       </button>
-      <button data-act="ocr" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2">
-        <span class="w-7 h-7 rounded bg-orange-600/15 text-orange-600 flex items-center justify-center">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        </span><span class="text-[10px] font-medium text-left">Texte</span>
-      </button>
     </div>
     <div class="flex items-center gap-5 mt-7 border-b border-line">
       <button data-tab="recent" class="tab-btn tab-on pb-2 text-xs font-medium border-b-2">Récents</button>
@@ -172,12 +169,6 @@
         </span><span class="text-xs font-semibold">Combiner</span>
         <span class="text-[10px] text-muted -mt-2">Fusionner des documents</span>
       </button>
-      <button data-act="ocr" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2">
-        <span class="w-9 h-9 rounded bg-orange-600/15 text-orange-600 flex items-center justify-center">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        </span><span class="text-xs font-semibold">Extraire le texte</span>
-        <span class="text-[10px] text-muted -mt-2">OCR français</span>
-      </button>
     </div>
     <p class="text-[10px] text-muted mt-6 leading-relaxed">Tous les traitements se font sur votre appareil. Aucun document n'est envoyé sur Internet.</p>
     <div class="mt-4 p-3 bg-surface border border-line rounded flex items-center justify-between">
@@ -193,21 +184,9 @@
       <input id="doc-name" type="text" class="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-teal-600 py-1">
     </div>
     <div id="pages-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
-    <section id="ocr-section" class="hidden bg-surface border border-line rounded p-4 mt-5">
-      <div class="flex items-center justify-between mb-3">
-        <h3 class="text-xs font-semibold tracking-wide">TEXTE EXTRAIT</h3>
-        <div class="flex items-center gap-3">
-          <button id="ocr-copy" class="text-[11px] font-semibold text-teal-600">Copier</button>
-          <button id="ocr-dl" class="text-[11px] font-semibold text-teal-600">.txt</button>
-        </div>
-      </div>
-      <div id="ocr-tabs" class="flex gap-1 overflow-x-auto no-scrollbar mb-2 border-b border-line"></div>
-      <textarea id="ocr-text" rows="6" readonly class="w-full p-3 text-xs bg-ink border border-line rounded focus:outline-none resize-none text-[#C8CDD8]"></textarea>
-    </section>
     <div class="grid grid-cols-2 gap-3 mt-5">
-      <button id="btn-ocr" class="py-3 rounded bg-surface2 border border-line text-xs font-medium">Extraire le texte</button>
       <button id="btn-sign" class="py-3 rounded bg-surface2 border border-line text-xs font-medium">Signer</button>
-      <button id="btn-export" class="col-span-2 py-3 rounded bg-teal-600 text-ink text-xs font-semibold tracking-wide">Exporter en PDF</button>
+      <button id="btn-export" class="py-3 rounded bg-teal-600 text-ink text-xs font-semibold tracking-wide">Exporter en PDF</button>
     </div>
   </section>
 </main>
@@ -785,9 +764,12 @@ const Cam = {
       }
       const warped = quad ? (Scan.warp(shot, quad) || shot) : shot;
       await nextFrame();
-      const done = Scan.process(warped, Doc.filter);
+      // Aucun traitement automatique : on enregistre la photo redressée telle
+      // quelle. L'utilisateur choisit ensuite le rendu (bouton "Rendu" sur la
+      // page, ou l'outil de recadrage) — jamais imposé à la capture.
+      const rawUrl = warped.toDataURL('image/jpeg', CFG.JPEG);
 
-      await Doc.addPage(done.toDataURL('image/jpeg', CFG.JPEG), { raw: warped.toDataURL('image/jpeg', CFG.JPEG) });
+      await Doc.addPage(rawUrl, { raw: rawUrl, filter: 'photo' });
       Cam.updateThumb();
       toast(`Page ${Doc.current.pages.length}${autoFired ? ' (auto)' : ''}`, 'ok');
     } catch (e) {
@@ -982,8 +964,6 @@ const UI = {
   openDoc(doc) {
     Doc.current = doc;
     $('doc-name').value = doc.name;
-    $('ocr-section').classList.add('hidden');
-    Ocr.tab = 0;
     UI.show('doc');
     UI.renderPages();
   },
@@ -1095,7 +1075,6 @@ document.addEventListener('click', e => {
   else if (a === 'import') Doc.ensure().then(() => $('file-input').click());
   else if (a === 'newdoc') Doc.ensure.call(null), (async()=>{ Doc.current = Doc.make(); await Doc.save(); UI.openDoc(Doc.current); UI.refresh(); })();
   else if (a === 'sign')   { if (need()) Sig.open(); }
-  else if (a === 'ocr')    { if (need()) Ocr.run(); }
   else if (a === 'merge')  merge();
 });
 function need() {
@@ -1321,64 +1300,6 @@ $('crop-ok').addEventListener('click', async () => {
 });
 
 /* ============================================================
-   OCR
-   ============================================================ */
-const Ocr = {
-  tab: 0,
-  async run() {
-    const d = Doc.current;
-    if (!d?.pages.length) return;
-    const btn = $('btn-ocr'), label = btn.textContent;
-    btn.disabled = true;
-    try {
-      const w = await Tesseract.createWorker('fra');
-      for (let i=0;i<d.pages.length;i++) {
-        btn.textContent = `Analyse ${i+1}/${d.pages.length}…`;
-        const r = await w.recognize(d.pages[i].url, {}, { text:true, blocks:true });
-        d.pages[i].text = (r.data.text||'').trim();
-        d.pages[i].words = Ocr.extract(r.data);
-      }
-      await w.terminate();
-      Ocr.tab = 0; Ocr.tabs();
-      $('ocr-section').classList.remove('hidden');
-      UI.renderPages();
-      toast('Texte extrait', 'ok');
-    } catch(e) { toast('Erreur OCR', 'err'); }
-    finally { btn.disabled=false; btn.textContent=label; }
-  },
-  extract(data) {
-    const out = [];
-    const add = w => {
-      if (!w?.bbox || !w.text) return;
-      if (w.confidence !== undefined && w.confidence < 40) return;
-      out.push({ text:w.text, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1 });
-    };
-    if (Array.isArray(data.words) && data.words.length) { data.words.forEach(add); return out; }
-    (data.blocks||[]).forEach(b => (b.paragraphs||[]).forEach(p => (p.lines||[]).forEach(l => (l.words||[]).forEach(add))));
-    return out;
-  },
-  tabs() {
-    const t = $('ocr-tabs'); t.innerHTML = '';
-    Doc.current.pages.forEach((p,i) => {
-      const b = document.createElement('button');
-      b.className = `px-3 py-1.5 text-[11px] border-b-2 whitespace-nowrap ${i===Ocr.tab?'tab-on':'border-transparent text-muted'}`;
-      b.textContent = `Page ${i+1}`;
-      b.onclick = () => { Ocr.tab = i; Ocr.tabs(); };
-      t.appendChild(b);
-    });
-    $('ocr-text').value = Doc.current.pages[Ocr.tab]?.text || '(aucun texte détecté)';
-  },
-};
-$('btn-ocr').addEventListener('click', () => Ocr.run());
-$('ocr-copy').addEventListener('click', () => navigator.clipboard.writeText($('ocr-text').value).then(()=>toast('Copié','ok')));
-$('ocr-dl').addEventListener('click', () => {
-  const txt = Doc.current.pages.map((p,i)=>`--- Page ${i+1} ---\n${p.text||''}`).join('\n\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
-  a.download = safe(Doc.current.name)+'.txt'; a.click();
-});
-
-/* ============================================================
    ÉDITION DE TEXTE
    ============================================================ */
 const Edit = {
@@ -1386,7 +1307,7 @@ const Edit = {
 
   async open(i) {
     const p = Doc.current.pages[i];
-    if (!p?.words?.length) return toast("Lancez d'abord l'OCR", 'err');
+    if (!p?.words?.length) return toast("Édition indisponible sur cette page", 'err');
     const img = await loadImage(p.url);
     Edit.i = i;
     Edit.words = JSON.parse(JSON.stringify(p.words));
@@ -1506,7 +1427,6 @@ $('edit-save').addEventListener('click', () => {
   p.text = p.words.map(w=>w.text).join(' ');
   $('edit').classList.add('hidden'); $('edit-sheet').classList.add('hidden');
   UI.renderPages();
-  if (!$('ocr-section').classList.contains('hidden')) Ocr.tabs();
   toast('Enregistré', 'ok');
 });
 
@@ -1586,7 +1506,7 @@ const Export = {
       }
     });
     doc.save(safe(d.name)+'.pdf');
-    toast(n ? `PDF exporté — ${n}/${d.pages.length} cherchable(s)` : "PDF exporté — OCR pour le rendre cherchable", 'ok');
+    toast(n ? `PDF exporté — ${n}/${d.pages.length} cherchable(s)` : 'PDF exporté', 'ok');
   },
 };
 $('btn-export').addEventListener('click', () => Export.pdf());
