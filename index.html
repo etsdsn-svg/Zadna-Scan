@@ -15,82 +15,71 @@
 
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet">
 
 <script src="https://cdn.tailwindcss.com"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
 <script>
-  window.__cvState = 'loading';
-  window.__onCvReady = function () { window.__cvState = 'ready'; document.dispatchEvent(new Event('opencv-ready')); };
-  window.__onCvLoaded = function () {
-    if (typeof cv === 'undefined') { window.__cvState = 'failed'; return; }
-    if (typeof cv.then === 'function') cv.then(function (m) { window.cv = m; window.__onCvReady(); });
-    else if (typeof cv.Mat === 'function') window.__onCvReady();
-    else cv.onRuntimeInitialized = window.__onCvReady;
+  // OpenCV s'initialise en asynchrone : le chargement du script ne suffit pas.
+  window.CV = { state: 'loading' };
+  window.__cvDone = function () { CV.state = 'ready'; document.dispatchEvent(new Event('cv-ready')); };
+  window.__cvLoad = function () {
+    if (typeof cv === 'undefined') return (CV.state = 'failed');
+    if (typeof cv.then === 'function') cv.then(m => { window.cv = m; __cvDone(); });
+    else if (typeof cv.Mat === 'function') __cvDone();
+    else cv.onRuntimeInitialized = __cvDone;
   };
 </script>
-<script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="window.__onCvLoaded()" onerror="window.__cvState='failed'"></script>
+<script async src="https://docs.opencv.org/4.9.0/opencv.js" onload="window.__cvLoad()" onerror="CV.state='failed'"></script>
 
 <script>
-  tailwind.config = {
-    theme: { extend: {
-      colors: {
-        indigo: { DEFAULT:'#3B5BFF', 500:'#5B76FF', 600:'#3B5BFF', 700:'#2E47CC' },
-        teal:   { DEFAULT:'#00C2A8', 600:'#00C2A8' },
-        orange: { DEFAULT:'#FF5B3D', 600:'#FF5B3D' },
-        gold:   { DEFAULT:'#FFC93C', 600:'#FFC93C' },
-        ink:    '#111318',
-        deep:   '#0E1015',
-        surface:'#161920',
-        surface2:'#1D2029',
-        line:   '#23262F',
-        muted:  '#5D6473',
-      },
-      fontFamily: {
-        display:['"JetBrains Mono"','monospace'],
-        sans:['"JetBrains Mono"','monospace'],
-        ui:['"Inter"','sans-serif'],
-        mono:['"JetBrains Mono"','monospace'],
-      },
-      boxShadow: { fab:'0 10px 26px -6px rgba(0,194,168,0.5)' },
-    }}
-  }
+  tailwind.config = { theme: { extend: {
+    colors: {
+      indigo:{DEFAULT:'#3B5BFF',500:'#5B76FF',600:'#3B5BFF'},
+      teal:{DEFAULT:'#00C2A8',600:'#00C2A8',700:'#00A891'},
+      orange:{DEFAULT:'#FF5B3D',600:'#FF5B3D'},
+      gold:{DEFAULT:'#FFC93C',600:'#FFC93C'},
+      ink:'#111318', deep:'#0E1015', surface:'#161920', surface2:'#1D2029',
+      line:'#23262F', muted:'#5D6473',
+    },
+    fontFamily:{ sans:['"JetBrains Mono"','monospace'], mono:['"JetBrains Mono"','monospace'], ui:['"Inter"','sans-serif'] },
+    boxShadow:{ fab:'0 10px 26px -6px rgba(0,194,168,0.5)' },
+  }}}
 </script>
 
 <style>
-  html,body{overscroll-behavior-y:none;background:#111318;letter-spacing:-0.01em;}
-  /* Barre de marque : les quatre couleurs ZADNA en filet technique */
-  .brand-bar{height:2px;background:linear-gradient(90deg,#3B5BFF 0 25%,#00C2A8 25% 50%,#FFC93C 50% 75%,#FF5B3D 75%)}
+  html,body{overscroll-behavior-y:none;background:#111318;letter-spacing:-.01em}
   .no-scrollbar::-webkit-scrollbar{display:none}
   .no-scrollbar{-ms-overflow-style:none;scrollbar-width:none}
   :focus-visible{outline:2px solid #00C2A8;outline-offset:2px}
-  .vf-corner{position:absolute;width:34px;height:34px}
-  .vf-tl{top:14%;left:8%;border-top:4px solid #3B5BFF;border-left:4px solid #3B5BFF;border-radius:6px 0 0 0}
-  .vf-tr{top:14%;right:8%;border-top:4px solid #00C2A8;border-right:4px solid #00C2A8;border-radius:0 6px 0 0}
-  .vf-bl{bottom:14%;left:8%;border-bottom:4px solid #FFC93C;border-left:4px solid #FFC93C;border-radius:0 0 0 6px}
-  .vf-br{bottom:14%;right:8%;border-bottom:4px solid #FF5B3D;border-right:4px solid #FF5B3D;border-radius:0 0 6px 0}
-  @keyframes flash{0%{opacity:.9}100%{opacity:0}}
-  .flash-anim{animation:flash .35s ease-out forwards}
-  @keyframes sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
-  .sheet-anim{animation:sheet-up .22s ease-out}
-  @keyframes toast-in{from{transform:translateY(12px);opacity:0}to{transform:translateY(0);opacity:1}}
-  .toast-anim{animation:toast-in .25s ease-out}
-  @media (prefers-reduced-motion:reduce){.flash-anim,.sheet-anim,.toast-anim{animation:none!important}}
-  .crop-handle{fill:#fff;stroke:#3B5BFF;stroke-width:3}
-  .crop-edge{stroke:#3B5BFF;stroke-width:2.5;fill:rgba(59,91,255,0.12)}
+  .brand-bar{height:2px;background:linear-gradient(90deg,#3B5BFF 0 25%,#00C2A8 25% 50%,#FFC93C 50% 75%,#FF5B3D 75%)}
   .tab-on{color:#E8EAF0;border-color:#00C2A8}
+  @keyframes flash{0%{opacity:.85}100%{opacity:0}}
+  .flash-anim{animation:flash .3s ease-out forwards}
+  @keyframes sheet-up{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .sheet-anim{animation:sheet-up .2s ease-out}
+  @keyframes toast-in{from{transform:translateY(10px);opacity:0}to{transform:translateY(0);opacity:1}}
+  .toast-anim{animation:toast-in .2s ease-out}
+  @media (prefers-reduced-motion:reduce){.flash-anim,.sheet-anim,.toast-anim{animation:none!important}}
+  .crop-handle{fill:#fff;stroke:#00C2A8;stroke-width:3}
+  .crop-edge{stroke:#00C2A8;stroke-width:2.5;fill:rgba(0,194,168,.12)}
+  /* Coins du viseur : les 4 couleurs ZADNA, affichés tant qu'aucun document n'est détecté */
+  .vf{position:absolute;width:30px;height:30px;transition:opacity .2s}
+  .vf-tl{top:12%;left:7%;border-top:3px solid #3B5BFF;border-left:3px solid #3B5BFF;border-radius:5px 0 0 0}
+  .vf-tr{top:12%;right:7%;border-top:3px solid #00C2A8;border-right:3px solid #00C2A8;border-radius:0 5px 0 0}
+  .vf-bl{bottom:12%;left:7%;border-bottom:3px solid #FFC93C;border-left:3px solid #FFC93C;border-radius:0 0 0 5px}
+  .vf-br{bottom:12%;right:7%;border-bottom:3px solid #FF5B3D;border-right:3px solid #FF5B3D;border-radius:0 0 5px 0}
 </style>
 </head>
 <body class="h-full flex flex-col font-sans text-[#E8EAF0] antialiased bg-ink">
 
-<div class="brand-bar sticky top-0 z-40"></div>
+<div class="brand-bar"></div>
 
-<!-- ============ EN-TÊTE ============ -->
-<header class="px-4 pt-[max(env(safe-area-inset-top),0.75rem)] pb-3 flex items-center justify-between bg-ink border-b border-line sticky top-0 z-30">
+<header class="px-4 pt-[max(env(safe-area-inset-top),0.7rem)] pb-3 flex items-center justify-between bg-ink border-b border-line sticky top-0 z-30">
   <div class="flex items-center gap-2.5">
-    <button id="back-btn" class="hidden w-9 h-9 -ml-1 items-center justify-center rounded-full hover:bg-surface2" aria-label="Retour">
+    <button id="back-btn" class="hidden w-9 h-9 -ml-1 items-center justify-center rounded" aria-label="Retour">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
     </button>
     <svg id="brand-mark" class="w-8 h-8" viewBox="0 0 40 40" fill="none">
@@ -102,14 +91,13 @@
       <rect x="26" y="18.3" width="3" height="10.7" rx="1.5" fill="#FF5B3D"/>
     </svg>
     <div class="leading-none">
-      <p class="font-mono text-[9px] tracking-[0.18em] text-muted uppercase">ZADNA.SOL.X</p>
-      <h1 id="header-title" class="font-mono font-semibold text-sm text-[#E8EAF0] -mt-0.5">scanner_pro</h1>
+      <p class="text-[9px] tracking-[0.18em] text-muted uppercase">ZADNA.SOL.X</p>
+      <h1 id="header-title" class="font-semibold text-sm -mt-0.5">scanner_pro</h1>
     </div>
   </div>
   <div class="flex items-center gap-2">
-    <span id="version-tag" class="font-mono text-[9px] text-muted">v1.0</span>
-    <span id="doc-chip" class="hidden font-mono text-[10px] px-2 py-1 rounded bg-teal-600/15 text-teal-600 font-semibold"></span>
-    <button id="header-action" class="hidden w-9 h-9 items-center justify-center rounded-full hover:bg-surface2" aria-label="Options">
+    <span id="doc-chip" class="hidden text-[10px] px-2 py-1 rounded bg-teal-600/15 text-teal-600 font-semibold"></span>
+    <button id="header-action" class="hidden w-9 h-9 items-center justify-center rounded" aria-label="Options">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"/></svg>
     </button>
   </div>
@@ -117,201 +105,176 @@
 
 <main class="flex-1 overflow-y-auto no-scrollbar pb-28">
 
-  <!-- ============ ACCUEIL ============ -->
+  <!-- ACCUEIL -->
   <section id="screen-home" class="screen px-4">
-    <p class="font-mono text-[11px] text-muted mt-4 tracking-wide">// session</p>
-    <h2 id="greeting" class="font-mono font-semibold text-xl mt-1 mb-5">Bonjour</h2>
-
-    <p class="font-mono text-[9px] font-semibold uppercase tracking-[0.16em] text-muted mb-2">Actions</p>
-    <div class="flex gap-px bg-line border border-line rounded overflow-hidden mb-1">
-      <button data-quick="scan" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2 transition-colors">
+    <p class="text-[11px] text-muted mt-4">// session</p>
+    <h2 id="greeting" class="font-semibold text-xl mt-1 mb-5">Bonjour</h2>
+    <p class="text-[9px] font-semibold uppercase tracking-[0.16em] text-muted mb-2">Actions</p>
+    <div class="flex gap-px bg-line border border-line rounded overflow-hidden">
+      <button data-act="scan" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2">
         <span class="w-7 h-7 rounded bg-indigo-600/15 text-indigo-500 flex items-center justify-center">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
-        </span>
-        <span class="font-mono text-[10px] font-medium leading-tight text-left">Numériser</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </span><span class="text-[10px] font-medium text-left">Numériser</span>
       </button>
-      <button data-quick="import" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2 transition-colors">
+      <button data-act="import" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2">
         <span class="w-7 h-7 rounded bg-teal-600/15 text-teal-600 flex items-center justify-center">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        </span>
-        <span class="font-mono text-[10px] font-medium leading-tight text-left">Importer</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+        </span><span class="text-[10px] font-medium text-left">Importer</span>
       </button>
-      <button data-quick="sign" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2 transition-colors">
+      <button data-act="sign" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2">
         <span class="w-7 h-7 rounded bg-gold-600/15 text-gold-600 flex items-center justify-center">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
-        </span>
-        <span class="font-mono text-[10px] font-medium leading-tight text-left">Signer</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z"/></svg>
+        </span><span class="text-[10px] font-medium text-left">Signer</span>
       </button>
-      <button data-quick="ocr" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2 transition-colors">
+      <button data-act="ocr" class="flex-1 bg-surface p-3 flex flex-col items-start gap-2.5 active:bg-surface2">
         <span class="w-7 h-7 rounded bg-orange-600/15 text-orange-600 flex items-center justify-center">
-          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        </span>
-        <span class="font-mono text-[10px] font-medium leading-tight text-left">Extraire texte</span>
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
+        </span><span class="text-[10px] font-medium text-left">Texte</span>
       </button>
     </div>
-
     <div class="flex items-center gap-5 mt-7 border-b border-line">
-      <button data-tab="recent" class="tab-btn tab-on pb-2 font-mono text-xs font-medium border-b-2">Récents</button>
-      <button data-tab="starred" class="tab-btn pb-2 font-mono text-xs font-medium border-b-2 border-transparent text-muted">Favoris</button>
+      <button data-tab="recent" class="tab-btn tab-on pb-2 text-xs font-medium border-b-2">Récents</button>
+      <button data-tab="starred" class="tab-btn pb-2 text-xs font-medium border-b-2 border-transparent text-muted">Favoris</button>
     </div>
-    <div id="home-list" class="mt-1"></div>
+    <div id="home-list"></div>
   </section>
 
-  <!-- ============ FICHIERS ============ -->
+  <!-- FICHIERS -->
   <section id="screen-files" class="screen hidden px-4">
-    <div class="relative mt-2 mb-4">
+    <div class="relative mt-4 mb-2">
       <svg class="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-4.35-4.35M17 11a6 6 0 11-12 0 6 6 0 0112 0z"/></svg>
-      <input id="search-input" type="search" placeholder="Rechercher un document ou son contenu"
-             class="w-full bg-surface border border-line rounded-xl pl-9 pr-3 py-2.5 text-sm placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-teal-600">
+      <input id="search-input" type="search" placeholder="Rechercher (nom ou contenu)"
+             class="w-full bg-surface border border-line rounded pl-9 pr-3 py-2.5 text-xs placeholder:text-muted focus:outline-none focus:ring-2 focus:ring-teal-600">
     </div>
     <div id="files-list"></div>
   </section>
 
-  <!-- ============ OUTILS ============ -->
+  <!-- OUTILS -->
   <section id="screen-tools" class="screen hidden px-4">
-    <p class="font-mono text-[11px] text-muted mt-4 tracking-wide">// outils</p><h2 class="font-mono font-semibold text-lg mt-1 mb-4">Traitement</h2>
+    <p class="text-[11px] text-muted mt-4">// outils</p>
+    <h2 class="font-semibold text-lg mt-1 mb-4">Traitement</h2>
     <div class="grid grid-cols-2 gap-3">
-      <button data-tool="scan" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2 transition-colors">
+      <button data-act="scan" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2">
         <span class="w-9 h-9 rounded bg-indigo-600/15 text-indigo-500 flex items-center justify-center">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
-        </span>
-        <span class="font-mono text-xs font-semibold">Numériser</span>
-        <span class="font-mono text-[10px] text-muted -mt-2">Caméra + redressement</span>
+        </span><span class="text-xs font-semibold">Numériser</span>
+        <span class="text-[10px] text-muted -mt-2">Détection auto en direct</span>
       </button>
-      <button data-tool="import" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2 transition-colors">
+      <button data-act="import" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2">
         <span class="w-9 h-9 rounded bg-teal-600/15 text-teal-600 flex items-center justify-center">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-        </span>
-        <span class="font-mono text-xs font-semibold">Importer</span>
-        <span class="font-mono text-[10px] text-muted -mt-2">Image ou PDF</span>
+        </span><span class="text-xs font-semibold">Importer</span>
+        <span class="text-[10px] text-muted -mt-2">Image ou PDF</span>
       </button>
-      <button data-tool="merge" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2 transition-colors">
+      <button data-act="merge" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2">
         <span class="w-9 h-9 rounded bg-gold-600/15 text-gold-600 flex items-center justify-center">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"/></svg>
-        </span>
-        <span class="font-mono text-xs font-semibold">Combiner</span>
-        <span class="font-mono text-[10px] text-muted -mt-2">Fusionner des documents</span>
+        </span><span class="text-xs font-semibold">Combiner</span>
+        <span class="text-[10px] text-muted -mt-2">Fusionner des documents</span>
       </button>
-      <button data-tool="ocr" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2 transition-colors">
+      <button data-act="ocr" class="bg-surface border border-line rounded p-4 flex flex-col items-start gap-3 active:bg-surface2">
         <span class="w-9 h-9 rounded bg-orange-600/15 text-orange-600 flex items-center justify-center">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-        </span>
-        <span class="font-mono text-xs font-semibold">Extraire le texte</span>
-        <span class="font-mono text-[10px] text-muted -mt-2">OCR français</span>
+        </span><span class="text-xs font-semibold">Extraire le texte</span>
+        <span class="text-[10px] text-muted -mt-2">OCR français</span>
       </button>
     </div>
-    <p class="text-[11px] text-muted mt-6 leading-relaxed">Tous les traitements se font sur votre appareil. Aucun document n'est envoyé sur Internet.</p>
+    <p class="text-[10px] text-muted mt-6 leading-relaxed">Tous les traitements se font sur votre appareil. Aucun document n'est envoyé sur Internet.</p>
+    <div class="mt-4 p-3 bg-surface border border-line rounded flex items-center justify-between">
+      <span class="text-[10px] text-muted">Détection des bords</span>
+      <span id="cv-status" class="text-[10px] font-semibold">…</span>
+    </div>
   </section>
 
-  <!-- ============ DOCUMENT OUVERT ============ -->
+  <!-- DOCUMENT -->
   <section id="screen-doc" class="screen hidden px-4">
-    <div class="flex items-center gap-2 mt-2 mb-4">
+    <div class="flex items-center gap-2 mt-4 mb-4">
       <svg class="w-4 h-4 text-muted shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-      <input id="doc-name" type="text" class="flex-1 bg-transparent font-mono text-sm text-white/80 focus:outline-none border-b border-transparent focus:border-teal-600 py-1">
+      <input id="doc-name" type="text" class="flex-1 bg-transparent text-sm focus:outline-none border-b border-transparent focus:border-teal-600 py-1">
     </div>
     <div id="pages-grid" class="grid grid-cols-2 sm:grid-cols-3 gap-3"></div>
-
     <section id="ocr-section" class="hidden bg-surface border border-line rounded p-4 mt-5">
       <div class="flex items-center justify-between mb-3">
-        <h3 class="font-mono text-xs font-semibold tracking-wide">TEXTE EXTRAIT</h3>
+        <h3 class="text-xs font-semibold tracking-wide">TEXTE EXTRAIT</h3>
         <div class="flex items-center gap-3">
-          <button id="ocr-copy-btn" class="text-xs font-semibold text-indigo-500">Copier</button>
-          <button id="ocr-download-btn" class="text-xs font-semibold text-indigo-500">.txt</button>
+          <button id="ocr-copy" class="text-[11px] font-semibold text-teal-600">Copier</button>
+          <button id="ocr-dl" class="text-[11px] font-semibold text-teal-600">.txt</button>
         </div>
       </div>
       <div id="ocr-tabs" class="flex gap-1 overflow-x-auto no-scrollbar mb-2 border-b border-line"></div>
-      <textarea id="ocr-text-result" rows="6" readonly class="w-full p-3 text-sm font-mono bg-ink border border-line rounded-xl focus:outline-none resize-none text-white/80"></textarea>
+      <textarea id="ocr-text" rows="6" readonly class="w-full p-3 text-xs bg-ink border border-line rounded focus:outline-none resize-none text-[#C8CDD8]"></textarea>
     </section>
-
     <div class="grid grid-cols-2 gap-3 mt-5">
-      <button id="doc-ocr-btn" class="py-3 rounded bg-surface2 border border-line font-mono text-xs font-medium">Extraire le texte</button>
-      <button id="doc-sign-btn" class="py-3 rounded bg-surface2 border border-line font-mono text-xs font-medium">Signer</button>
-      <button id="doc-export-btn" class="col-span-2 py-3 rounded bg-teal-600 text-ink font-mono text-xs font-semibold tracking-wide">Exporter en PDF</button>
+      <button id="btn-ocr" class="py-3 rounded bg-surface2 border border-line text-xs font-medium">Extraire le texte</button>
+      <button id="btn-sign" class="py-3 rounded bg-surface2 border border-line text-xs font-medium">Signer</button>
+      <button id="btn-export" class="col-span-2 py-3 rounded bg-teal-600 text-ink text-xs font-semibold tracking-wide">Exporter en PDF</button>
     </div>
   </section>
 </main>
 
-<!-- ============ BARRE DE NAVIGATION ============ -->
+<!-- NAVIGATION -->
 <nav class="fixed bottom-0 inset-x-0 bg-deep/95 backdrop-blur border-t border-line pb-[max(env(safe-area-inset-bottom),0.5rem)] pt-2 z-30">
   <div class="max-w-2xl mx-auto flex items-end justify-around px-4">
     <button data-nav="home" class="nav-btn flex flex-col items-center gap-1 w-16 text-teal-600">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l9-9 9 9M5 10v10a1 1 0 001 1h3v-6h6v6h3a1 1 0 001-1V10"/></svg>
-      <span class="font-mono text-[9px] font-medium">Accueil</span>
+      <span class="text-[9px] font-medium">Accueil</span>
     </button>
     <button data-nav="files" class="nav-btn flex flex-col items-center gap-1 w-16 text-muted">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 7a2 2 0 012-2h4l2 2h7a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2V7z"/></svg>
-      <span class="font-mono text-[9px] font-medium">Fichiers</span>
+      <span class="text-[9px] font-medium">Fichiers</span>
     </button>
-
-    <button id="fab" class="relative -mt-7 w-14 h-14 rounded-xl bg-teal-600 text-ink shadow-fab flex items-center justify-center active:scale-95 transition-transform shrink-0" aria-label="Nouveau">
+    <button id="fab" class="relative -mt-7 w-14 h-14 rounded-xl bg-teal-600 text-ink shadow-fab flex items-center justify-center active:scale-95 transition-transform shrink-0" aria-label="Numériser">
       <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M12 5v14M5 12h14"/></svg>
     </button>
-
     <button data-nav="tools" class="nav-btn flex flex-col items-center gap-1 w-16 text-muted">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h6v6H4zM14 6h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
-      <span class="font-mono text-[9px] font-medium">Outils</span>
+      <span class="text-[9px] font-medium">Outils</span>
     </button>
     <button data-nav="about" class="nav-btn flex flex-col items-center gap-1 w-16 text-muted">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
-      <span class="font-mono text-[9px] font-medium">À propos</span>
+      <span class="text-[9px] font-medium">À propos</span>
     </button>
   </div>
 </nav>
 
-<!-- ============ FEUILLE D'ACTIONS (FAB) ============ -->
-<div id="fab-sheet" class="fixed inset-0 z-[58] hidden">
-  <div class="absolute inset-0 bg-black/60" data-close-sheet></div>
-  <div class="sheet-anim absolute bottom-0 inset-x-0 bg-surface rounded-t-3xl pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
+<!-- FEUILLES -->
+<div id="sheet-new" class="fixed inset-0 z-[58] hidden">
+  <div class="absolute inset-0 bg-black/60" data-close></div>
+  <div class="sheet-anim absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
     <div class="w-10 h-1 rounded-full bg-line mx-auto mb-3"></div>
-    <button data-quick="scan" class="w-full flex items-center gap-4 px-6 py-4 active:bg-surface2">
-      <svg class="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z"/></svg>
-      <span class="text-sm font-medium">Numériser un document</span>
-    </button>
-    <div class="h-px bg-line mx-6"></div>
-    <button data-quick="import" class="w-full flex items-center gap-4 px-6 py-4 active:bg-surface2">
-      <svg class="w-5 h-5 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
-      <span class="text-sm font-medium">Importer une image ou un PDF</span>
-    </button>
-    <button data-quick="newdoc" class="w-full flex items-center gap-4 px-6 py-4 active:bg-surface2">
-      <svg class="w-5 h-5 text-gold-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 13h6m-3-3v6m5 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>
-      <span class="text-sm font-medium">Nouveau document vide</span>
-    </button>
+    <button data-act="scan" class="w-full flex items-center gap-4 px-6 py-4 active:bg-surface2 text-sm">Numériser un document</button>
+    <button data-act="import" class="w-full flex items-center gap-4 px-6 py-4 active:bg-surface2 text-sm">Importer une image ou un PDF</button>
+    <button data-act="newdoc" class="w-full flex items-center gap-4 px-6 py-4 active:bg-surface2 text-sm">Nouveau document vide</button>
   </div>
 </div>
 
-<!-- Menu contextuel document -->
-<div id="doc-menu" class="fixed inset-0 z-[58] hidden">
-  <div class="absolute inset-0 bg-black/60" data-close-sheet></div>
-  <div class="sheet-anim absolute bottom-0 inset-x-0 bg-surface rounded-t-3xl pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
+<div id="sheet-doc" class="fixed inset-0 z-[58] hidden">
+  <div class="absolute inset-0 bg-black/60" data-close></div>
+  <div class="sheet-anim absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl pb-[max(env(safe-area-inset-bottom),1rem)] pt-3">
     <div class="w-10 h-1 rounded-full bg-line mx-auto mb-3"></div>
-    <p id="doc-menu-title" class="px-6 pb-2 text-xs text-muted font-mono truncate"></p>
-    <button data-docact="open" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm font-medium">Ouvrir</button>
-    <button data-docact="star" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm font-medium">Ajouter aux favoris</button>
-    <button data-docact="rename" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm font-medium">Renommer</button>
-    <button data-docact="export" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm font-medium">Exporter en PDF</button>
-    <button data-docact="delete" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm font-medium text-orange-600">Supprimer</button>
+    <p id="sheet-doc-title" class="px-6 pb-2 text-[10px] text-muted truncate"></p>
+    <button data-docact="open" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm">Ouvrir</button>
+    <button data-docact="star" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm">Ajouter aux favoris</button>
+    <button data-docact="rename" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm">Renommer</button>
+    <button data-docact="export" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm">Exporter en PDF</button>
+    <button data-docact="delete" class="w-full text-left px-6 py-4 active:bg-surface2 text-sm text-orange-600">Supprimer</button>
   </div>
 </div>
 
-<!-- À propos -->
-<div id="about-sheet" class="fixed inset-0 z-[58] hidden">
-  <div class="absolute inset-0 bg-black/60" data-close-sheet></div>
-  <div class="sheet-anim absolute bottom-0 inset-x-0 bg-surface rounded-t-3xl pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-3 px-6">
+<div id="sheet-about" class="fixed inset-0 z-[58] hidden">
+  <div class="absolute inset-0 bg-black/60" data-close></div>
+  <div class="sheet-anim absolute bottom-0 inset-x-0 bg-surface rounded-t-2xl pb-[max(env(safe-area-inset-bottom),1.5rem)] pt-3 px-6">
     <div class="w-10 h-1 rounded-full bg-line mx-auto mb-5"></div>
-    <p class="font-mono text-[10px] tracking-[0.2em] text-muted uppercase">ZADNA.SOL.X</p>
-    <h3 class="font-mono font-bold text-lg mt-1">scanner_pro</h3>
-    <p class="text-sm text-muted mt-3 leading-relaxed">
-      Numérisation, redressement automatique, suppression des ombres, OCR français,
-      édition de texte et export PDF cherchable. Tout se passe sur votre appareil :
-      aucun document n'est envoyé sur Internet.
+    <p class="text-[10px] tracking-[0.2em] text-muted uppercase">ZADNA.SOL.X</p>
+    <h3 class="font-bold text-lg mt-1">scanner_pro</h3>
+    <p class="text-xs text-muted mt-3 leading-relaxed">
+      Détection des bords en direct, capture automatique, suppression des ombres,
+      OCR français et export PDF cherchable. Tout se passe sur votre appareil.
     </p>
-    <div class="mt-5 pt-4 border-t border-line flex items-center justify-between text-xs">
-      <span class="text-muted">Documents enregistrés</span>
-      <span id="about-count" class="font-mono font-semibold text-indigo-500">0</span>
-    </div>
-    <div class="mt-2 flex items-center justify-between text-xs">
-      <span class="text-muted">Détection des bords</span>
-      <span id="about-cv" class="font-mono font-semibold"></span>
+    <div class="mt-5 pt-4 border-t border-line space-y-2 text-[11px]">
+      <div class="flex justify-between"><span class="text-muted">Documents</span><span id="ab-docs" class="font-semibold text-teal-600">0</span></div>
+      <div class="flex justify-between"><span class="text-muted">Pages</span><span id="ab-pages" class="font-semibold text-teal-600">0</span></div>
+      <div class="flex justify-between"><span class="text-muted">Détection</span><span id="ab-cv" class="font-semibold">…</span></div>
     </div>
   </div>
 </div>
@@ -319,1236 +282,1325 @@
 <input type="file" id="file-input" accept="image/*,application/pdf" class="hidden" multiple>
 
 <!-- ============ CAMÉRA ============ -->
-<div id="camera-modal" class="fixed inset-0 bg-black z-50 flex flex-col justify-between hidden">
-  <div class="p-4 pt-[max(env(safe-area-inset-top),1rem)] flex items-center justify-between text-white bg-gradient-to-b from-black/70 to-transparent">
-    <span class="font-mono text-xs text-white/80">SCANNER · <span id="cam-page-count">0</span> page(s)</span>
-    <button id="close-camera-btn" class="p-2 text-white/80" aria-label="Fermer">
+<div id="cam" class="fixed inset-0 bg-black z-50 flex flex-col hidden">
+  <div class="p-4 pt-[max(env(safe-area-inset-top),1rem)] flex items-center justify-between text-white z-20">
+    <button id="cam-close" class="w-9 h-9 flex items-center justify-center" aria-label="Fermer">
       <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
     </button>
+    <div class="flex items-center gap-2">
+      <button id="cam-torch" class="hidden w-9 h-9 items-center justify-center rounded bg-white/10" aria-label="Lampe">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+      </button>
+      <button id="cam-auto" class="px-3 h-9 rounded bg-teal-600 text-ink text-[11px] font-semibold">AUTO</button>
+    </div>
   </div>
-  <div class="relative flex-1 flex items-center justify-center overflow-hidden">
-    <video id="webcam-feed" autoplay playsinline class="max-h-full max-w-full object-contain"></video>
-    <div class="vf-corner vf-tl"></div><div class="vf-corner vf-tr"></div>
-    <div class="vf-corner vf-bl"></div><div class="vf-corner vf-br"></div>
-    <div id="flash-overlay" class="absolute inset-0 bg-white pointer-events-none opacity-0"></div>
+
+  <div id="cam-stage" class="relative flex-1 overflow-hidden">
+    <video id="video" autoplay playsinline muted class="absolute inset-0 w-full h-full object-contain"></video>
+    <canvas id="overlay" class="absolute pointer-events-none"></canvas>
+    <div id="vf-guides" class="absolute inset-0 pointer-events-none">
+      <div class="vf vf-tl"></div><div class="vf vf-tr"></div><div class="vf vf-bl"></div><div class="vf vf-br"></div>
+    </div>
+    <div id="cam-hint" class="absolute bottom-3 inset-x-0 text-center text-white/80 text-[11px] px-6"></div>
+    <div id="flash" class="absolute inset-0 bg-white pointer-events-none opacity-0"></div>
   </div>
-  <div class="p-6 pb-[max(env(safe-area-inset-bottom),1.5rem)] flex items-center justify-center bg-gradient-to-t from-black/80 to-transparent">
-    <button id="capture-btn" class="w-20 h-20 rounded-full border-[3px] border-white flex items-center justify-center p-1.5" aria-label="Capturer">
+
+  <div class="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-3 flex items-center justify-between gap-4 z-20">
+    <button id="cam-thumb" class="w-14 h-14 rounded border border-white/25 bg-white/5 overflow-hidden flex items-center justify-center text-[10px] text-white/60 shrink-0">0</button>
+    <button id="shutter" class="w-[70px] h-[70px] rounded-full border-[3px] border-white flex items-center justify-center p-1.5 shrink-0" aria-label="Capturer">
       <div class="w-full h-full rounded-full" style="background:conic-gradient(#3B5BFF,#00C2A8,#FFC93C,#FF5B3D,#3B5BFF)"></div>
     </button>
+    <button id="cam-done" class="w-14 h-14 rounded bg-teal-600 text-ink text-[11px] font-semibold shrink-0">OK</button>
   </div>
 </div>
 
-<!-- ============ RECADRAGE ============ -->
-<div id="crop-modal" class="fixed inset-0 bg-ink z-[55] flex flex-col hidden">
+<!-- RECADRAGE MANUEL -->
+<div id="crop" class="fixed inset-0 bg-ink z-[55] flex flex-col hidden">
   <div class="p-4 pt-[max(env(safe-area-inset-top),1rem)] flex items-center justify-between">
-    <button id="crop-cancel-btn" class="text-sm font-medium text-muted">Annuler</button>
-    <span class="font-mono text-[10px] tracking-wide text-muted">AJUSTER LES BORDS</span>
-    <button id="crop-reset-btn" class="text-sm font-medium text-muted">Tout</button>
+    <button id="crop-cancel" class="text-xs text-muted">Annuler</button>
+    <span class="text-[10px] text-muted tracking-wide">AJUSTER</span>
+    <button id="crop-full" class="text-xs text-muted">Tout</button>
   </div>
   <div class="flex-1 flex items-center justify-center overflow-hidden px-3">
     <div id="crop-stage" class="relative touch-none">
-      <canvas id="crop-canvas" class="max-w-full block rounded-lg"></canvas>
-      <svg id="crop-overlay" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
+      <canvas id="crop-canvas" class="max-w-full block rounded"></canvas>
+      <svg id="crop-svg" class="absolute inset-0 w-full h-full pointer-events-none"></svg>
     </div>
   </div>
   <div class="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-4 flex flex-col gap-3">
-    <p id="crop-hint" class="text-center text-xs text-muted">Faites glisser les coins pour cadrer</p>
     <div class="flex items-center justify-center gap-2">
-      <button data-filter="auto" class="filter-btn px-4 py-2 rounded text-[11px] font-mono font-semibold bg-teal-600 text-ink">Auto</button>
-      <button data-filter="bw" class="filter-btn px-4 py-2 rounded text-[11px] font-mono font-semibold bg-surface2 text-muted">Noir &amp; blanc</button>
-      <button data-filter="photo" class="filter-btn px-4 py-2 rounded text-[11px] font-mono font-semibold bg-surface2 text-muted">Photo</button>
+      <button data-filter="auto" class="fbtn px-4 py-2 rounded text-[11px] font-semibold bg-teal-600 text-ink">Auto</button>
+      <button data-filter="bw" class="fbtn px-4 py-2 rounded text-[11px] font-semibold bg-surface2 text-muted">N&amp;B</button>
+      <button data-filter="gray" class="fbtn px-4 py-2 rounded text-[11px] font-semibold bg-surface2 text-muted">Gris</button>
+      <button data-filter="photo" class="fbtn px-4 py-2 rounded text-[11px] font-semibold bg-surface2 text-muted">Photo</button>
     </div>
     <div class="flex items-center gap-3">
-      <button id="crop-auto-btn" class="flex-1 py-3 rounded bg-surface2 border border-line font-mono text-xs font-medium">Détecter</button>
-      <button id="crop-apply-btn" class="flex-1 py-3 rounded bg-teal-600 text-ink font-mono text-xs font-semibold">Valider</button>
+      <button id="crop-detect" class="flex-1 py-3 rounded bg-surface2 border border-line text-xs font-medium">Détecter</button>
+      <button id="crop-ok" class="flex-1 py-3 rounded bg-teal-600 text-ink text-xs font-semibold">Valider</button>
     </div>
   </div>
 </div>
 
-<!-- ============ ÉDITION DE TEXTE ============ -->
-<div id="edit-modal" class="fixed inset-0 bg-ink z-[56] flex flex-col hidden">
+<!-- ÉDITION DE TEXTE -->
+<div id="edit" class="fixed inset-0 bg-ink z-[56] flex flex-col hidden">
   <div class="p-4 pt-[max(env(safe-area-inset-top),1rem)] flex items-center justify-between">
-    <button id="edit-close-btn" class="text-sm font-medium text-muted">Fermer</button>
-    <span id="edit-mode-badge" class="font-mono text-[10px] px-2 py-1 rounded-full"></span>
-    <button id="edit-undo-btn" class="text-sm font-medium text-muted disabled:opacity-30" disabled>Annuler</button>
+    <button id="edit-close" class="text-xs text-muted">Fermer</button>
+    <span id="edit-badge" class="text-[10px] px-2 py-1 rounded"></span>
+    <button id="edit-undo" class="text-xs text-muted disabled:opacity-30" disabled>Annuler</button>
   </div>
   <div class="flex-1 flex items-center justify-center overflow-auto px-3">
-    <div id="edit-stage" class="relative">
-      <canvas id="edit-canvas" class="max-w-full block rounded-lg bg-white"></canvas>
+    <div class="relative">
+      <canvas id="edit-canvas" class="max-w-full block rounded bg-white"></canvas>
       <div id="edit-boxes" class="absolute inset-0"></div>
     </div>
   </div>
   <div class="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-4 flex flex-col gap-3">
-    <p id="edit-hint" class="text-center text-xs text-muted">Touchez un mot pour le modifier</p>
+    <p id="edit-hint" class="text-center text-[11px] text-muted">Touchez un mot pour le modifier</p>
     <div class="flex items-center gap-3">
-      <button id="edit-toggle-boxes" class="flex-1 py-3 rounded bg-surface2 border border-line font-mono text-xs font-medium">Masquer les zones</button>
-      <button id="edit-apply-btn" class="flex-1 py-3 rounded bg-teal-600 text-ink font-mono text-xs font-semibold">Enregistrer</button>
+      <button id="edit-toggle" class="flex-1 py-3 rounded bg-surface2 border border-line text-xs font-medium">Masquer les zones</button>
+      <button id="edit-save" class="flex-1 py-3 rounded bg-teal-600 text-ink text-xs font-semibold">Enregistrer</button>
     </div>
   </div>
 </div>
 
-<div id="edit-input-sheet" class="fixed inset-x-0 bottom-0 z-[57] bg-surface rounded-t-2xl p-4 pb-[max(env(safe-area-inset-bottom),1rem)] hidden border-t border-line">
+<div id="edit-sheet" class="fixed inset-x-0 bottom-0 z-[57] bg-surface rounded-t-2xl p-4 pb-[max(env(safe-area-inset-bottom),1rem)] hidden border-t border-line">
   <div class="flex items-center justify-between mb-2">
-    <span class="text-xs font-semibold uppercase tracking-wider text-muted">Modifier le texte</span>
-    <span id="edit-input-meta" class="font-mono text-[10px] text-muted"></span>
+    <span class="text-[10px] font-semibold uppercase tracking-wider text-muted">Modifier</span>
+    <span id="edit-meta" class="text-[10px] text-muted"></span>
   </div>
-  <input id="edit-input" type="text" class="w-full p-3 text-base bg-ink border border-line rounded-xl focus:outline-none focus:ring-2 focus:ring-teal-600">
+  <input id="edit-input" type="text" class="w-full p-3 text-base bg-ink border border-line rounded focus:outline-none focus:ring-2 focus:ring-teal-600">
   <div class="flex items-center gap-2 mt-3">
-    <button id="edit-input-cancel" class="px-4 py-2.5 text-sm font-medium text-muted bg-surface2 rounded-xl">Annuler</button>
-    <button id="edit-input-delete" class="px-4 py-2.5 text-sm font-medium text-orange-600 bg-orange-600/10 rounded-xl">Effacer</button>
-    <button id="edit-input-ok" class="flex-1 py-2.5 font-mono text-xs font-semibold bg-teal-600 text-ink rounded">Appliquer</button>
+    <button id="ei-cancel" class="px-4 py-2.5 text-xs text-muted bg-surface2 rounded">Annuler</button>
+    <button id="ei-del" class="px-4 py-2.5 text-xs text-orange-600 bg-orange-600/10 rounded">Effacer</button>
+    <button id="ei-ok" class="flex-1 py-2.5 text-xs font-semibold bg-teal-600 text-ink rounded">Appliquer</button>
   </div>
 </div>
 
-<!-- ============ SIGNATURE ============ -->
-<div id="signature-modal" class="fixed inset-0 bg-black/70 z-[56] flex items-center justify-center p-4 hidden">
+<!-- SIGNATURE -->
+<div id="sig" class="fixed inset-0 bg-black/70 z-[56] flex items-center justify-center p-4 hidden">
   <div class="bg-surface border border-line rounded max-w-md w-full p-5 flex flex-col gap-4">
     <div class="flex items-center justify-between">
-      <h3 class="font-mono text-sm font-semibold">Signature</h3>
-      <button id="close-signature-btn" class="text-muted" aria-label="Fermer">
+      <h3 class="text-sm font-semibold">Signature</h3>
+      <button id="sig-close" class="text-muted" aria-label="Fermer">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
       </button>
     </div>
-    <div class="rounded-xl overflow-hidden touch-none">
-      <canvas id="signature-pad" width="400" height="200" class="w-full h-48 bg-white"></canvas>
-    </div>
-    <label class="flex items-center gap-2 text-xs text-muted">
-      <input type="checkbox" id="sig-all-pages" class="rounded border-line"> Appliquer à toutes les pages
+    <div class="rounded overflow-hidden touch-none"><canvas id="sig-pad" width="400" height="200" class="w-full h-48 bg-white"></canvas></div>
+    <label class="flex items-center gap-2 text-[11px] text-muted">
+      <input type="checkbox" id="sig-all" class="rounded border-line"> Appliquer à toutes les pages
     </label>
     <div class="flex items-center justify-between gap-3">
-      <button id="clear-signature-btn" class="px-4 py-2 text-sm font-medium text-muted bg-surface2 rounded-xl">Effacer</button>
-      <button id="save-signature-btn" class="px-5 py-2 font-mono text-xs font-semibold bg-teal-600 text-ink rounded">Appliquer</button>
+      <button id="sig-clear" class="px-4 py-2 text-xs text-muted bg-surface2 rounded">Effacer</button>
+      <button id="sig-save" class="px-5 py-2 text-xs font-semibold bg-teal-600 text-ink rounded">Appliquer</button>
     </div>
   </div>
 </div>
 
-<div id="toast-container" class="fixed bottom-28 inset-x-0 flex flex-col items-center gap-2 z-[60] pointer-events-none px-4"></div>
-<canvas id="hidden-canvas" class="hidden"></canvas>
+<div id="toasts" class="fixed bottom-28 inset-x-0 flex flex-col items-center gap-2 z-[60] pointer-events-none px-4"></div>
+<canvas id="scratch" class="hidden"></canvas>
 
 <script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
-}
-const $ = id => document.getElementById(id);
+'use strict';
+if ('serviceWorker' in navigator) addEventListener('load', () => navigator.serviceWorker.register('./sw.js').catch(()=>{}));
 
-/* ================= BASE DE DONNÉES (IndexedDB) ================= */
-// localStorage (~5 Mo) est trop petit pour une bibliothèque de scans.
-const DB = {
-  db: null,
-  open() {
-    return new Promise((resolve, reject) => {
-      const req = indexedDB.open('scannerpro', 1);
-      req.onupgradeneeded = e => {
-        const db = e.target.result;
-        if (!db.objectStoreNames.contains('docs')) db.createObjectStore('docs', { keyPath: 'id' });
-      };
-      req.onsuccess = e => { DB.db = e.target.result; resolve(DB.db); };
-      req.onerror = () => reject(req.error);
-    });
-  },
-  tx(mode) { return DB.db.transaction('docs', mode).objectStore('docs'); },
-  put(doc) { return new Promise((res, rej) => { const r = DB.tx('readwrite').put(doc); r.onsuccess = () => res(doc); r.onerror = () => rej(r.error); }); },
-  del(id) { return new Promise((res, rej) => { const r = DB.tx('readwrite').delete(id); r.onsuccess = () => res(); r.onerror = () => rej(r.error); }); },
-  all() { return new Promise((res, rej) => { const r = DB.tx('readonly').getAll(); r.onsuccess = () => res(r.result || []); r.onerror = () => rej(r.error); }); },
+const $ = id => document.getElementById(id);
+const CFG = {
+  DETECT_W: 320,        // largeur d'analyse pour la détection en direct
+  DETECT_MS: 110,       // intervalle entre deux analyses (~9 img/s)
+  STABLE_FRAMES: 5,     // images stables consécutives avant capture auto
+  STABLE_TOL: 0.030,    // tolérance de mouvement (fraction de la largeur)
+  MIN_AREA: 0.15,       // aire minimale du quadrilatère détecté
+  MAX_DIM: 2400,        // résolution max conservée (compromis netteté/vitesse)
+  JPEG: 0.92,
 };
 
-/* ================= ÉTAT ================= */
-let library = [];
-let current = null;
-let currentScreen = 'home';
-let homeTab = 'recent';
+/* ---------------- Utilitaires ---------------- */
+const cvOk = () => typeof cv !== 'undefined' && cv && typeof cv.Mat === 'function';
+const canvasOf = (w,h) => { const c = document.createElement('canvas'); c.width=w; c.height=h; return c; };
+const dist = (a,b) => Math.hypot(a.x-b.x, a.y-b.y);
 
-const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
-
-function newDoc(name) {
-  const d = new Date(), p = n => String(n).padStart(2, '0');
-  return {
-    id: uid(),
-    name: name || `Document ${p(d.getDate())}-${p(d.getMonth()+1)} ${p(d.getHours())}h${p(d.getMinutes())}`,
-    pages: [], starred: false, createdAt: Date.now(), updatedAt: Date.now(),
-  };
+function loadImage(src) {
+  return new Promise((res, rej) => { const i = new Image(); i.onload = () => res(i); i.onerror = rej; i.src = src; });
 }
-
-async function saveCurrent() {
-  if (!current) return;
-  current.updatedAt = Date.now();
-  try { await DB.put(current); } catch (e) { showToast('Espace de stockage insuffisant', 'error'); }
-  const i = library.findIndex(d => d.id === current.id);
-  if (i >= 0) library[i] = current; else library.push(current);
+function blobToURL(b) {
+  return new Promise((res, rej) => { const r = new FileReader(); r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(b); });
 }
-
-/* ================= TOASTS ================= */
-function showToast(msg, kind='info') {
-  const colors = { info:'bg-surface2 border border-line', success:'bg-teal-600', error:'bg-orange-600' };
+function toast(msg, kind='info') {
+  const bg = { info:'bg-surface2 border border-line', ok:'bg-teal-600 text-ink', err:'bg-orange-600' }[kind] || 'bg-surface2';
   const el = document.createElement('div');
-  el.className = `toast-anim pointer-events-auto ${colors[kind]||colors.info} text-white text-sm font-medium px-4 py-2.5 rounded-full max-w-[90vw] text-center`;
+  el.className = `toast-anim pointer-events-auto ${bg} text-xs font-medium px-4 py-2.5 rounded-full max-w-[90vw] text-center`;
   el.textContent = msg;
-  $('toast-container').appendChild(el);
-  setTimeout(() => { el.style.transition='opacity .3s'; el.style.opacity='0'; setTimeout(()=>el.remove(),300); }, 2600);
+  $('toasts').appendChild(el);
+  setTimeout(() => { el.style.transition='opacity .25s'; el.style.opacity='0'; setTimeout(()=>el.remove(),250); }, 2400);
 }
+// Laisse le navigateur peindre avant un calcul lourd (évite l'UI figée)
+const nextFrame = () => new Promise(r => requestAnimationFrame(() => setTimeout(r, 0)));
 
-/* ================= NAVIGATION ================= */
-function showScreen(name) {
-  currentScreen = name;
-  document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
-  const target = $('screen-' + name);
-  if (target) target.classList.remove('hidden');
-
-  const isDoc = name === 'doc';
-  $('back-btn').classList.toggle('hidden', !isDoc);
-  $('back-btn').classList.toggle('flex', isDoc);
-  $('brand-mark').classList.toggle('hidden', isDoc);
-  $('header-action').classList.toggle('hidden', !isDoc);
-  $('header-action').classList.toggle('flex', isDoc);
-  $('header-title').textContent = isDoc ? 'document' : 'scanner_pro';
-  $('version-tag').classList.toggle('hidden', isDoc);
-  $('doc-chip').classList.toggle('hidden', !isDoc);
-
-  document.querySelectorAll('.nav-btn').forEach(b => {
-    const on = b.dataset.nav === name;
-    b.className = `nav-btn flex flex-col items-center gap-1 w-16 ${on ? 'text-teal-600' : 'text-muted'}`;
-  });
-
-  if (name === 'home') renderHome();
-  if (name === 'files') renderFiles($('search-input').value);
-}
-
-document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => {
-  if (b.dataset.nav === 'about') { openAbout(); return; }
-  showScreen(b.dataset.nav);
-}));
-$('back-btn').addEventListener('click', async () => { await saveCurrent(); showScreen('home'); });
-
-function openAbout() {
-  $('about-count').textContent = library.length;
-  const cv = window.__cvState;
-  $('about-cv').textContent = cv === 'ready' ? 'Active' : cv === 'failed' ? 'Indisponible' : 'Chargement…';
-  $('about-cv').className = 'font-mono font-semibold ' + (cv === 'ready' ? 'text-teal-600' : cv === 'failed' ? 'text-orange-600' : 'text-muted');
-  $('about-sheet').classList.remove('hidden');
-}
-
-/* ================= LISTES ================= */
-function fmtDate(ts) {
-  const d = new Date(ts);
-  if (d.toDateString() === new Date().toDateString()) return "Aujourd'hui " + d.toTimeString().slice(0,5);
-  return d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
-}
-function docSize(doc) {
-  const bytes = doc.pages.reduce((s,p) => s + (p.url ? p.url.length * 0.75 : 0), 0);
-  return bytes > 1048576 ? (bytes/1048576).toFixed(1) + ' Mo' : Math.round(bytes/1024) + ' ko';
-}
-const esc = s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-
-function docRow(doc) {
-  const thumb = doc.pages[0]?.url;
-  return `<div class="flex items-center gap-3 py-3 border-b border-line" data-docid="${doc.id}">
-    <button class="doc-open shrink-0 w-10 h-13 rounded-sm overflow-hidden bg-surface2 border border-line flex items-center justify-center" style="height:52px">
-      ${thumb ? `<img src="${thumb}" class="w-full h-full object-cover">`
-              : `<svg class="w-5 h-5 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`}
-    </button>
-    <button class="doc-open flex-1 min-w-0 text-left">
-      <p class="font-mono text-[12px] font-medium truncate">${esc(doc.name)}</p>
-      <p class="font-mono text-[10px] text-muted mt-1 flex items-center gap-1.5">
-        ${doc.starred ? '<span class="text-gold-600">&#9733;</span>' : ''}
-        <span class="font-mono text-teal-600 font-semibold">${doc.pages.length}p</span>
-        <span>·</span><span>${fmtDate(doc.updatedAt)}</span>
-        <span>·</span><span>${docSize(doc)}</span>
-      </p>
-    </button>
-    <button class="doc-menu-btn w-9 h-9 rounded-full flex items-center justify-center text-muted" aria-label="Options">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"/></svg>
-    </button>
-  </div>`;
-}
-
-function emptyBlock(text, sub) {
-  return `<div class="text-center py-14">
-    <div class="relative w-28 h-20 mx-auto rounded-xl bg-surface border border-line mb-4">
-      <div class="vf-corner vf-tl" style="width:18px;height:18px;border-width:3px"></div>
-      <div class="vf-corner vf-tr" style="width:18px;height:18px;border-width:3px"></div>
-      <div class="vf-corner vf-bl" style="width:18px;height:18px;border-width:3px"></div>
-      <div class="vf-corner vf-br" style="width:18px;height:18px;border-width:3px"></div>
-    </div>
-    <p class="font-mono text-sm font-semibold">${text}</p>
-    <p class="font-mono text-[10px] text-muted mt-1">${sub}</p>
-  </div>`;
-}
-
-function renderHome() {
-  const h = new Date().getHours();
-  $('greeting').textContent = (h < 12 ? 'Bonjour' : h < 18 ? 'Bon après-midi' : 'Bonsoir');
-  let list = [...library].sort((a,b) => b.updatedAt - a.updatedAt);
-  if (homeTab === 'starred') list = list.filter(d => d.starred);
-  $('home-list').innerHTML = list.length
-    ? list.map(docRow).join('')
-    : emptyBlock(homeTab === 'starred' ? 'Aucun favori' : 'Aucun document',
-                 homeTab === 'starred' ? "Marquez un document d'une étoile" : 'Touchez + pour numériser');
-}
-
-function renderFiles(query = '') {
-  const q = (query || '').trim().toLowerCase();
-  let list = [...library].sort((a,b) => b.updatedAt - a.updatedAt);
-  if (q) list = list.filter(d =>
-    d.name.toLowerCase().includes(q) ||
-    d.pages.some(p => (p.ocrText||'').toLowerCase().includes(q)));
-  $('files-list').innerHTML = list.length
-    ? list.map(docRow).join('')
-    : emptyBlock('Aucun résultat', q ? "Essayez d'autres mots" : 'Vos documents apparaîtront ici');
-}
-
-$('search-input').addEventListener('input', e => renderFiles(e.target.value));
-document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
-  homeTab = b.dataset.tab;
-  document.querySelectorAll('.tab-btn').forEach(x => {
-    const on = x.dataset.tab === homeTab;
-    x.className = `tab-btn pb-2.5 text-sm font-semibold border-b-2 ${on ? 'tab-on' : 'border-transparent text-muted'}`;
-  });
-  renderHome();
-}));
-
-document.addEventListener('click', e => {
-  const row = e.target.closest('[data-docid]');
-  if (!row) return;
-  const doc = library.find(d => d.id === row.dataset.docid);
-  if (!doc) return;
-  if (e.target.closest('.doc-menu-btn')) { openDocMenu(doc); return; }
-  if (e.target.closest('.doc-open')) openDoc(doc);
-});
-
-let menuDoc = null;
-function openDocMenu(doc) {
-  menuDoc = doc;
-  $('doc-menu-title').textContent = doc.name;
-  $('doc-menu').querySelector('[data-docact="star"]').textContent = doc.starred ? 'Retirer des favoris' : 'Ajouter aux favoris';
-  $('doc-menu').classList.remove('hidden');
-}
-$('doc-menu').addEventListener('click', async e => {
-  if (e.target.hasAttribute('data-close-sheet')) { $('doc-menu').classList.add('hidden'); return; }
-  const btn = e.target.closest('[data-docact]');
-  if (!btn || !menuDoc) return;
-  const act = btn.dataset.docact;
-  $('doc-menu').classList.add('hidden');
-  if (act === 'open') openDoc(menuDoc);
-  else if (act === 'star') { menuDoc.starred = !menuDoc.starred; await DB.put(menuDoc); refreshLists(); }
-  else if (act === 'rename') {
-    const n = prompt('Nom du document', menuDoc.name);
-    if (n && n.trim()) { menuDoc.name = n.trim(); await DB.put(menuDoc); if (current && current.id===menuDoc.id) $('doc-name').value = menuDoc.name; refreshLists(); }
-  }
-  else if (act === 'export') { const keep = current; current = menuDoc; exportPdf(); current = keep; }
-  else if (act === 'delete') {
-    if (confirm(`Supprimer "${menuDoc.name}" ?`)) {
-      await DB.del(menuDoc.id);
-      library = library.filter(d => d.id !== menuDoc.id);
-      if (current && current.id === menuDoc.id) { current = null; showScreen('home'); }
-      refreshLists(); showToast('Document supprimé', 'success');
+/* ============================================================
+   MOTEUR DE SCAN — détection, redressement, traitement
+   ============================================================ */
+const Scan = {
+  // Détecte le plus grand quadrilatère convexe. Retourne 4 points ou null.
+  detect(canvas) {
+    if (!cvOk()) return null;
+    let src, gray, blur, edges, contours, hier, best = null;
+    try {
+      src = cv.imread(canvas);
+      gray = new cv.Mat(); blur = new cv.Mat(); edges = new cv.Mat();
+      contours = new cv.MatVector(); hier = new cv.Mat();
+      cv.cvtColor(src, gray, cv.COLOR_RGBA2GRAY);
+      cv.GaussianBlur(gray, blur, new cv.Size(5,5), 0);
+      cv.Canny(blur, edges, 60, 180);
+      const k = cv.getStructuringElement(cv.MORPH_RECT, new cv.Size(3,3));
+      cv.dilate(edges, edges, k); k.delete();
+      cv.findContours(edges, contours, hier, cv.RETR_LIST, cv.CHAIN_APPROX_SIMPLE);
+      const area0 = canvas.width * canvas.height;
+      let bestArea = 0;
+      for (let i = 0; i < contours.size(); i++) {
+        const c = contours.get(i);
+        const ap = new cv.Mat();
+        cv.approxPolyDP(c, ap, 0.02 * cv.arcLength(c, true), true);
+        const a = Math.abs(cv.contourArea(ap));
+        if (ap.rows === 4 && a > bestArea && a > area0 * CFG.MIN_AREA && cv.isContourConvex(ap)) {
+          bestArea = a; if (best) best.delete(); best = ap;
+        } else ap.delete();
+        c.delete();
+      }
+      if (!best) return null;
+      const pts = [];
+      for (let i = 0; i < 4; i++) pts.push({ x: best.data32S[i*2], y: best.data32S[i*2+1] });
+      return Scan.order(pts);
+    } catch (e) { return null; }
+    finally {
+      [src,gray,blur,edges,contours,hier,best].forEach(m => { try { m && m.delete && m.delete(); } catch(_){} });
     }
-  }
+  },
+
+  // Ordonne : haut-gauche, haut-droite, bas-droite, bas-gauche
+  order(pts) {
+    const cx = pts.reduce((s,p)=>s+p.x,0)/4, cy = pts.reduce((s,p)=>s+p.y,0)/4;
+    const tl = pts.find(p=>p.x<=cx&&p.y<=cy), tr = pts.find(p=>p.x>cx&&p.y<=cy);
+    const br = pts.find(p=>p.x>cx&&p.y>cy),  bl = pts.find(p=>p.x<=cx&&p.y>cy);
+    if (tl&&tr&&br&&bl) return [tl,tr,br,bl];
+    return [...pts].sort((a,b)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(b.y-cy,b.x-cx));
+  },
+
+  // Redresse la perspective. quad en coordonnées de `src`.
+  warp(src, quad) {
+    const W = Math.round((dist(quad[0],quad[1]) + dist(quad[3],quad[2]))/2);
+    const H = Math.round((dist(quad[0],quad[3]) + dist(quad[1],quad[2]))/2);
+    if (W < 40 || H < 40) return null;
+    if (cvOk()) {
+      let sm, dm, st, dt, M;
+      try {
+        sm = cv.imread(src); dm = new cv.Mat();
+        st = cv.matFromArray(4,1,cv.CV_32FC2, quad.flatMap(p=>[p.x,p.y]));
+        dt = cv.matFromArray(4,1,cv.CV_32FC2, [0,0,W,0,W,H,0,H]);
+        M = cv.getPerspectiveTransform(st, dt);
+        cv.warpPerspective(sm, dm, M, new cv.Size(W,H), cv.INTER_LINEAR, cv.BORDER_CONSTANT, new cv.Scalar(255,255,255,255));
+        const out = canvasOf(W,H);
+        cv.imshow(out, dm);
+        return out;
+      } finally { [sm,dm,st,dt,M].forEach(m => { try { m && m.delete(); } catch(_){} }); }
+    }
+    // Repli sans OpenCV : recadrage rectangulaire
+    const xs = quad.map(p=>p.x), ys = quad.map(p=>p.y);
+    const x0 = Math.min(...xs), y0 = Math.min(...ys);
+    const w = Math.max(...xs)-x0, h = Math.max(...ys)-y0;
+    const out = canvasOf(w,h);
+    out.getContext('2d').drawImage(src, x0,y0,w,h, 0,0,w,h);
+    return out;
+  },
+
+  // Estime l'éclairage de fond par sous-échantillonnage (rapide).
+  background(c) {
+    const dw = Math.max(2, Math.round(c.width/22)), dh = Math.max(2, Math.round(c.height/22));
+    const s = canvasOf(dw,dh);
+    const sx = s.getContext('2d'); sx.filter = 'blur(2px)'; sx.drawImage(c, 0,0, dw,dh);
+    const b = canvasOf(c.width, c.height);
+    const bx = b.getContext('2d');
+    bx.imageSmoothingEnabled = true; bx.imageSmoothingQuality = 'high';
+    bx.drawImage(s, 0,0, c.width, c.height);
+    return bx.getImageData(0,0,c.width,c.height).data;
+  },
+
+  /**
+   * Rendu "scanner" : divise l'image par son fond estimé (supprime ombres et
+   * éclairage inégal), remet le papier à blanc, étale le contraste, accentue
+   * les contours. C'est ce qui distingue un scan d'une photo.
+   * mode : 'auto' | 'gray' | 'bw' | 'photo'
+   */
+  process(canvas, mode='auto') {
+    if (mode === 'photo') return canvas;
+    const w = canvas.width, h = canvas.height;
+    const ctx = canvas.getContext('2d');
+    const img = ctx.getImageData(0,0,w,h);
+    const d = img.data;
+    const bg = Scan.background(canvas);
+
+    // 1) division par le fond + mise à plat du papier (une seule passe)
+    for (let i = 0; i < d.length; i += 4) {
+      let r = (d[i]   / (bg[i]   > 32 ? bg[i]   : 32)) * 245;
+      let g = (d[i+1] / (bg[i+1] > 32 ? bg[i+1] : 32)) * 245;
+      let b = (d[i+2] / (bg[i+2] > 32 ? bg[i+2] : 32)) * 245;
+      r = r > 255 ? 255 : r; g = g > 255 ? 255 : g; b = b > 255 ? 255 : b;
+      const lum = r*0.299 + g*0.587 + b*0.114;
+      if (lum >= 214) { r = g = b = 255; }
+      else {
+        // désaturation progressive : supprime la moucheture colorée du capteur
+        const t = lum < 110 ? 0 : (lum > 214 ? 1 : (lum-110)/104);
+        r += (lum-r)*t; g += (lum-g)*t; b += (lum-b)*t;
+      }
+      d[i]=r; d[i+1]=g; d[i+2]=b;
+    }
+
+    // 2) bornes de contraste sur un échantillon
+    const hist = new Uint32Array(256);
+    for (let i = 0; i < d.length; i += 40) hist[(d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114)|0]++;
+    let total = 0; for (let i=0;i<256;i++) total += hist[i];
+    let acc=0, low=0, high=255;
+    for (let i=0;i<256;i++){ acc+=hist[i]; if (acc > total*0.02) { low=i; break; } }
+    acc=0;
+    for (let i=255;i>=0;i--){ acc+=hist[i]; if (acc > total*0.25) { high=i; break; } }
+    if (high - low < 40) { low = 0; high = 255; }
+    const range = high - low;
+
+    // 3) table de correspondance précalculée (bien plus rapide qu'un pow/pixel)
+    const lut = new Uint8Array(256);
+    for (let v = 0; v < 256; v++) {
+      let x = ((v - low) / range) * 255;
+      x = x < 0 ? 0 : x > 255 ? 255 : x;
+      x = x < 128 ? 128*Math.pow(x/128, 1.25) : 255 - 127*Math.pow((255-x)/127, 1.25);
+      lut[v] = x;
+    }
+    if (mode === 'bw') {
+      const t = low + range*0.60;
+      for (let i=0;i<d.length;i+=4) {
+        const v = (d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114) < t ? 0 : 255;
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+    } else if (mode === 'gray') {
+      for (let i=0;i<d.length;i+=4) {
+        const v = lut[(d[i]*0.299 + d[i+1]*0.587 + d[i+2]*0.114)|0];
+        d[i]=d[i+1]=d[i+2]=v;
+      }
+    } else {
+      for (let i=0;i<d.length;i+=4) { d[i]=lut[d[i]|0]; d[i+1]=lut[d[i+1]|0]; d[i+2]=lut[d[i+2]|0]; }
+    }
+    ctx.putImageData(img, 0, 0);
+
+    // 4) accentuation des contours (4 voisins seulement : 2x plus rapide qu'un 3x3)
+    if (mode !== 'bw') {
+      const a = ctx.getImageData(0,0,w,h), out = ctx.createImageData(w,h);
+      const s = a.data, o = out.data, W4 = w*4;
+      const C = 2.6, N = -0.4;
+      for (let y=0;y<h;y++) {
+        for (let x=0;x<w;x++) {
+          const i = (y*w+x)*4;
+          if (x===0||y===0||x===w-1||y===h-1) { o[i]=s[i];o[i+1]=s[i+1];o[i+2]=s[i+2];o[i+3]=255; continue; }
+          for (let c=0;c<3;c++) {
+            const j = i+c;
+            let v = s[j]*C + (s[j-4] + s[j+4] + s[j-W4] + s[j+W4]) * N;
+            o[j] = v < 0 ? 0 : v > 255 ? 255 : v;
+          }
+          o[i+3] = 255;
+        }
+      }
+      ctx.putImageData(out, 0, 0);
+    }
+    return canvas;
+  },
+
+  // Borne la résolution pour rester fluide sans perdre la netteté utile
+  fit(canvas, maxDim = CFG.MAX_DIM) {
+    const m = Math.max(canvas.width, canvas.height);
+    if (m <= maxDim) return canvas;
+    const s = maxDim/m;
+    const out = canvasOf(Math.round(canvas.width*s), Math.round(canvas.height*s));
+    const ctx = out.getContext('2d');
+    ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(canvas, 0,0, out.width, out.height);
+    return out;
+  },
+};
+
+/* ============================================================
+   CAMÉRA — détection en direct + capture automatique
+   ============================================================ */
+const Cam = {
+  stream:null, track:null, capture:null, timer:null,
+  quad:null, stable:0, busy:false, auto:true, torchOn:false,
+  armed:true, lost:0, shotQuad:null,
+  small:null, view:{x:0,y:0,w:0,h:0},
+
+  async open() {
+    try {
+      Cam.stream = await navigator.mediaDevices.getUserMedia({
+        video: { facingMode:{ideal:'environment'}, width:{ideal:3840}, height:{ideal:2160} }
+      });
+    } catch (e) { toast("Accès caméra refusé", 'err'); return; }
+    Cam.track = Cam.stream.getVideoTracks()[0];
+    Cam.capture = window.ImageCapture ? new ImageCapture(Cam.track) : null;
+    // Mise au point continue si l'appareil le permet
+    try { await Cam.track.applyConstraints({ advanced:[{ focusMode:'continuous' }] }); } catch(_){}
+    const caps = Cam.track.getCapabilities ? Cam.track.getCapabilities() : {};
+    $('cam-torch').classList.toggle('hidden', !caps.torch);
+    $('cam-torch').classList.toggle('flex', !!caps.torch);
+
+    $('video').srcObject = Cam.stream;
+    Cam.quad = null; Cam.stable = 0; Cam.busy = false; Cam.armed = true; Cam.lost = 0; Cam.shotQuad = null;
+    $('cam').classList.remove('hidden');
+    Cam.updateThumb();
+    await $('video').play().catch(()=>{});
+    Cam.small = canvasOf(CFG.DETECT_W, Math.round(CFG.DETECT_W * ($('video').videoHeight/$('video').videoWidth || 0.75)));
+    Cam.layout();
+    Cam.hint(CV.state === 'ready' ? 'Placez le document dans le cadre'
+           : CV.state === 'failed' ? 'Détection indisponible — cadrez et appuyez'
+           : 'Chargement de la détection…');
+    Cam.timer = setInterval(Cam.tick, CFG.DETECT_MS);
+  },
+
+  close() {
+    clearInterval(Cam.timer); Cam.timer = null;
+    if (Cam.stream) Cam.stream.getTracks().forEach(t => t.stop());
+    Cam.stream = Cam.track = Cam.capture = null;
+    $('cam').classList.add('hidden');
+  },
+
+  hint(t) { $('cam-hint').textContent = t; },
+
+  // Calcule la zone réellement occupée par la vidéo (object-contain)
+  layout() {
+    const v = $('video'), st = $('cam-stage');
+    if (!v.videoWidth) return;
+    const r = st.getBoundingClientRect();
+    const s = Math.min(r.width/v.videoWidth, r.height/v.videoHeight);
+    const w = v.videoWidth*s, h = v.videoHeight*s;
+    Cam.view = { x:(r.width-w)/2, y:(r.height-h)/2, w, h };
+    const o = $('overlay');
+    o.style.left = Cam.view.x+'px'; o.style.top = Cam.view.y+'px';
+    o.style.width = w+'px'; o.style.height = h+'px';
+    o.width = Math.round(w); o.height = Math.round(h);
+  },
+
+  tick() {
+    const v = $('video');
+    if (!v.videoWidth || Cam.busy || !cvOk()) return;
+    if (Cam.small.width !== CFG.DETECT_W || Math.abs(Cam.small.height/Cam.small.width - v.videoHeight/v.videoWidth) > 0.01) {
+      Cam.small = canvasOf(CFG.DETECT_W, Math.round(CFG.DETECT_W * v.videoHeight/v.videoWidth));
+      Cam.layout();
+    }
+    Cam.small.getContext('2d').drawImage(v, 0,0, Cam.small.width, Cam.small.height);
+    const q = Scan.detect(Cam.small);
+
+    if (!q) {
+      Cam.quad = null; Cam.stable = 0;
+      Cam.lost++;
+      // Le document est sorti du champ : on réarme la capture automatique
+      if (!Cam.armed && Cam.lost >= 3) { Cam.armed = true; Cam.shotQuad = null; }
+      Cam.draw(null);
+      Cam.hint(Cam.armed ? 'Placez le document dans le cadre' : 'Éloignez, puis présentez la page suivante');
+      return;
+    }
+    Cam.lost = 0;
+    // Stabilité : le quadrilatère bouge-t-il encore ?
+    const tol = Cam.small.width * CFG.STABLE_TOL;
+    const moved = !Cam.quad || q.some((p,i) => dist(p, Cam.quad[i]) > tol);
+    Cam.stable = moved ? 0 : Cam.stable + 1;
+    Cam.quad = q;
+
+    // Après une capture auto, il faut un vrai changement de cadrage avant la
+    // suivante — sinon la même page serait photographiée en boucle.
+    if (!Cam.armed && Cam.shotQuad) {
+      const big = Cam.small.width * 0.16;
+      if (q.some((p,i) => dist(p, Cam.shotQuad[i]) > big)) { Cam.armed = true; Cam.shotQuad = null; }
+    }
+
+    Cam.draw(q, Cam.armed ? Cam.stable / CFG.STABLE_FRAMES : 0);
+
+    if (!Cam.auto) { Cam.hint('Document détecté — appuyez pour capturer'); return; }
+    if (!Cam.armed) { Cam.hint('Présentez la page suivante'); return; }
+    Cam.hint(Cam.stable >= 2 ? 'Ne bougez plus…' : 'Document détecté');
+    if (Cam.stable >= CFG.STABLE_FRAMES) Cam.shoot(true);
+  },
+
+  draw(q, progress = 0) {
+    const o = $('overlay'), ctx = o.getContext('2d');
+    ctx.clearRect(0,0,o.width,o.height);
+    $('vf-guides').style.opacity = q ? '0' : '1';
+    if (!q) return;
+    const sx = o.width / Cam.small.width, sy = o.height / Cam.small.height;
+    ctx.beginPath();
+    q.forEach((p,i) => i ? ctx.lineTo(p.x*sx, p.y*sy) : ctx.moveTo(p.x*sx, p.y*sy));
+    ctx.closePath();
+    ctx.fillStyle = 'rgba(0,194,168,0.16)';
+    ctx.fill();
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = progress >= 1 ? '#FFC93C' : '#00C2A8';
+    ctx.stroke();
+    q.forEach(p => {
+      ctx.beginPath();
+      ctx.arc(p.x*sx, p.y*sy, 6, 0, Math.PI*2);
+      ctx.fillStyle = '#fff'; ctx.fill();
+      ctx.lineWidth = 2.5; ctx.strokeStyle = '#00C2A8'; ctx.stroke();
+    });
+  },
+
+  async shoot(autoFired = false) {
+    if (Cam.busy) return;
+    Cam.busy = true;
+    if (autoFired) { Cam.armed = false; Cam.shotQuad = Cam.quad ? Cam.quad.map(p=>({...p})) : null; }
+    clearInterval(Cam.timer); Cam.timer = null;
+    const fl = $('flash');
+    fl.classList.remove('flash-anim'); void fl.offsetWidth; fl.classList.add('flash-anim');
+    Cam.hint('Traitement…');
+
+    try {
+      // Vraie photo capteur si disponible, sinon image du flux
+      let shot = null;
+      if (Cam.capture && Cam.capture.takePhoto) {
+        try {
+          const blob = await Cam.capture.takePhoto();
+          const bmp = await createImageBitmap(blob);
+          shot = canvasOf(bmp.width, bmp.height);
+          shot.getContext('2d').drawImage(bmp, 0, 0);
+          bmp.close && bmp.close();
+        } catch(_) { shot = null; }
+      }
+      if (!shot) {
+        const v = $('video');
+        shot = canvasOf(v.videoWidth, v.videoHeight);
+        shot.getContext('2d').drawImage(v, 0, 0);
+      }
+      shot = Scan.fit(shot);
+      await nextFrame();
+
+      // On redétecte sur la photo capturée : évite tout décalage de repères
+      // entre l'aperçu et le capteur (cadrages et rapports différents).
+      const probe = Scan.fit(shot, 900);
+      let quad = Scan.detect(probe);
+      if (quad) {
+        const k = shot.width / probe.width;
+        quad = quad.map(p => ({ x:p.x*k, y:p.y*k }));
+      }
+      const warped = quad ? (Scan.warp(shot, quad) || shot) : shot;
+      await nextFrame();
+      const done = Scan.process(warped, Doc.filter);
+
+      await Doc.addPage(done.toDataURL('image/jpeg', CFG.JPEG), { raw: warped.toDataURL('image/jpeg', CFG.JPEG) });
+      Cam.updateThumb();
+      toast(`Page ${Doc.current.pages.length}${autoFired ? ' (auto)' : ''}`, 'ok');
+    } catch (e) {
+      toast('Échec de la capture', 'err');
+    } finally {
+      Cam.busy = false; Cam.quad = null; Cam.stable = 0; Cam.lost = 0;
+      Cam.draw(null);
+      if ($('cam').classList.contains('hidden')) return;
+      Cam.hint(Cam.armed ? 'Prêt pour la page suivante' : 'Présentez la page suivante');
+      Cam.timer = setInterval(Cam.tick, CFG.DETECT_MS);
+    }
+  },
+
+  updateThumb() {
+    const n = Doc.current ? Doc.current.pages.length : 0;
+    const last = n ? Doc.current.pages[n-1].url : null;
+    $('cam-thumb').innerHTML = last
+      ? `<img src="${last}" class="w-full h-full object-cover"><span class="absolute"></span>`
+      : '0';
+    $('cam-thumb').classList.toggle('relative', !!last);
+    if (last) {
+      $('cam-thumb').insertAdjacentHTML('beforeend',
+        `<span class="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-teal-600 text-ink text-[10px] font-bold flex items-center justify-center">${n}</span>`);
+    }
+  },
+};
+
+$('cam-close').addEventListener('click', () => { Cam.close(); if (Doc.current && Doc.current.pages.length) UI.openDoc(Doc.current); });
+$('cam-done').addEventListener('click', () => { Cam.close(); if (Doc.current) UI.openDoc(Doc.current); });
+$('shutter').addEventListener('click', () => Cam.shoot(false));
+$('cam-thumb').addEventListener('click', () => { Cam.close(); if (Doc.current) UI.openDoc(Doc.current); });
+$('cam-auto').addEventListener('click', () => {
+  Cam.auto = !Cam.auto;
+  $('cam-auto').className = 'px-3 h-9 rounded text-[11px] font-semibold ' +
+    (Cam.auto ? 'bg-teal-600 text-ink' : 'bg-white/10 text-white/70');
+  toast(Cam.auto ? 'Capture automatique activée' : 'Capture manuelle');
 });
-$('fab-sheet').addEventListener('click', e => { if (e.target.hasAttribute('data-close-sheet')) $('fab-sheet').classList.add('hidden'); });
-$('about-sheet').addEventListener('click', e => { if (e.target.hasAttribute('data-close-sheet')) $('about-sheet').classList.add('hidden'); });
+$('cam-torch').addEventListener('click', async () => {
+  if (!Cam.track) return;
+  Cam.torchOn = !Cam.torchOn;
+  try { await Cam.track.applyConstraints({ advanced:[{ torch: Cam.torchOn }] }); } catch(_) { toast('Lampe indisponible','err'); }
+  $('cam-torch').className = 'w-9 h-9 flex items-center justify-center rounded ' + (Cam.torchOn ? 'bg-gold-600 text-ink' : 'bg-white/10');
+});
+addEventListener('resize', () => { if (!$('cam').classList.contains('hidden')) Cam.layout(); });
+document.addEventListener('cv-ready', () => {
+  $('cv-status').textContent = 'Active'; $('cv-status').className = 'text-[10px] font-semibold text-teal-600';
+  if (!$('cam').classList.contains('hidden')) Cam.hint('Placez le document dans le cadre');
+});
 
-function refreshLists() {
-  if (currentScreen === 'home') renderHome();
-  if (currentScreen === 'files') renderFiles($('search-input').value);
-}
+/* ============================================================
+   STOCKAGE — IndexedDB (localStorage est trop petit)
+   ============================================================ */
+const DB = {
+  db:null,
+  open() {
+    return new Promise((res, rej) => {
+      const r = indexedDB.open('scannerpro', 1);
+      r.onupgradeneeded = e => { const db = e.target.result;
+        if (!db.objectStoreNames.contains('docs')) db.createObjectStore('docs', { keyPath:'id' }); };
+      r.onsuccess = e => { DB.db = e.target.result; res(); };
+      r.onerror = () => rej(r.error);
+    });
+  },
+  store(m) { return DB.db.transaction('docs', m).objectStore('docs'); },
+  put(d)  { return new Promise((res,rej)=>{ const r=DB.store('readwrite').put(d); r.onsuccess=()=>res(d); r.onerror=()=>rej(r.error); }); },
+  del(id) { return new Promise((res,rej)=>{ const r=DB.store('readwrite').delete(id); r.onsuccess=()=>res(); r.onerror=()=>rej(r.error); }); },
+  all()   { return new Promise((res,rej)=>{ const r=DB.store('readonly').getAll(); r.onsuccess=()=>res(r.result||[]); r.onerror=()=>rej(r.error); }); },
+};
 
-function openDoc(doc) {
-  current = doc;
-  $('doc-name').value = doc.name;
-  $('ocr-section').classList.add('hidden');
-  ocrTab = 0;
-  showScreen('doc');
-  renderPages();
-}
+/* ============================================================
+   DOCUMENTS
+   ============================================================ */
+const Doc = {
+  library: [], current: null, filter: 'auto',
 
-/* ================= ACTIONS ================= */
-$('fab').addEventListener('click', () => $('fab-sheet').classList.remove('hidden'));
+  make(name) {
+    const d = new Date(), p = n => String(n).padStart(2,'0');
+    return { id: Date.now().toString(36)+Math.random().toString(36).slice(2,7),
+      name: name || `Scan ${p(d.getDate())}-${p(d.getMonth()+1)} ${p(d.getHours())}h${p(d.getMinutes())}`,
+      pages: [], starred:false, createdAt:Date.now(), updatedAt:Date.now() };
+  },
+  async ensure() {
+    if (!Doc.current) { Doc.current = Doc.make(); await Doc.save(); }
+    return Doc.current;
+  },
+  async save() {
+    if (!Doc.current) return;
+    Doc.current.updatedAt = Date.now();
+    try { await DB.put(Doc.current); }
+    catch(e) { toast('Stockage saturé', 'err'); }
+    const i = Doc.library.findIndex(d => d.id === Doc.current.id);
+    if (i >= 0) Doc.library[i] = Doc.current; else Doc.library.push(Doc.current);
+  },
+  async addPage(url, meta = {}) {
+    await Doc.ensure();
+    Doc.current.pages.push({
+      url, raw: meta.raw || url,
+      filter: meta.filter || Doc.filter,
+      kind: meta.kind || 'scan',
+      words: meta.words || null,
+      text: meta.words ? meta.words.map(w=>w.text).join(' ') : '',
+    });
+    await Doc.save();
+    if (!$('screen-doc').classList.contains('hidden')) UI.renderPages();
+  },
+};
+
+/* ============================================================
+   INTERFACE
+   ============================================================ */
+const UI = {
+  screen:'home', tab:'recent', menuDoc:null,
+
+  show(name) {
+    UI.screen = name;
+    document.querySelectorAll('.screen').forEach(s => s.classList.add('hidden'));
+    $('screen-' + name)?.classList.remove('hidden');
+    const isDoc = name === 'doc';
+    $('back-btn').classList.toggle('hidden', !isDoc);
+    $('back-btn').classList.toggle('flex', isDoc);
+    $('brand-mark').classList.toggle('hidden', isDoc);
+    $('header-action').classList.toggle('hidden', !isDoc);
+    $('header-action').classList.toggle('flex', isDoc);
+    $('header-title').textContent = isDoc ? 'document' : 'scanner_pro';
+    $('doc-chip').classList.toggle('hidden', !isDoc);
+    document.querySelectorAll('.nav-btn').forEach(b => {
+      b.className = `nav-btn flex flex-col items-center gap-1 w-16 ${b.dataset.nav===name?'text-teal-600':'text-muted'}`;
+    });
+    if (name === 'home') UI.renderHome();
+    if (name === 'files') UI.renderFiles($('search-input').value);
+  },
+
+  fmt(ts) {
+    const d = new Date(ts);
+    return d.toDateString() === new Date().toDateString()
+      ? "Aujourd'hui " + d.toTimeString().slice(0,5)
+      : d.toLocaleDateString('fr-FR', { day:'2-digit', month:'short', year:'numeric' });
+  },
+  size(doc) {
+    const b = doc.pages.reduce((s,p) => s + (p.url?p.url.length*0.75:0), 0);
+    return b > 1048576 ? (b/1048576).toFixed(1)+' Mo' : Math.round(b/1024)+' ko';
+  },
+  esc: s => String(s).replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c])),
+
+  row(doc) {
+    const t = doc.pages[0]?.url;
+    return `<div class="flex items-center gap-3 py-3 border-b border-line" data-id="${doc.id}">
+      <button class="d-open shrink-0 w-10 rounded-sm overflow-hidden bg-surface2 border border-line flex items-center justify-center" style="height:52px">
+        ${t ? `<img src="${t}" class="w-full h-full object-cover">`
+            : `<svg class="w-4 h-4 text-muted" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/></svg>`}
+      </button>
+      <button class="d-open flex-1 min-w-0 text-left">
+        <p class="text-[12px] font-medium truncate">${UI.esc(doc.name)}</p>
+        <p class="text-[10px] text-muted mt-1 flex items-center gap-1.5">
+          ${doc.starred?'<span class="text-gold-600">&#9733;</span>':''}
+          <span class="text-teal-600 font-semibold">${doc.pages.length}p</span>
+          <span>·</span><span>${UI.fmt(doc.updatedAt)}</span>
+          <span>·</span><span>${UI.size(doc)}</span></p>
+      </button>
+      <button class="d-menu w-9 h-9 rounded flex items-center justify-center text-muted" aria-label="Options">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 5v.01M12 12v.01M12 19v.01"/></svg>
+      </button></div>`;
+  },
+  empty(t, s) {
+    return `<div class="text-center py-16">
+      <div class="relative w-24 h-16 mx-auto rounded bg-surface border border-line mb-4">
+        <div class="vf vf-tl" style="width:14px;height:14px;border-width:2px"></div>
+        <div class="vf vf-tr" style="width:14px;height:14px;border-width:2px"></div>
+        <div class="vf vf-bl" style="width:14px;height:14px;border-width:2px"></div>
+        <div class="vf vf-br" style="width:14px;height:14px;border-width:2px"></div>
+      </div>
+      <p class="text-sm font-semibold">${t}</p><p class="text-[10px] text-muted mt-1">${s}</p></div>`;
+  },
+
+  renderHome() {
+    const h = new Date().getHours();
+    $('greeting').textContent = h<12 ? 'Bonjour' : h<18 ? 'Bon après-midi' : 'Bonsoir';
+    let l = [...Doc.library].sort((a,b)=>b.updatedAt-a.updatedAt);
+    if (UI.tab === 'starred') l = l.filter(d => d.starred);
+    $('home-list').innerHTML = l.length ? l.map(UI.row).join('')
+      : UI.empty(UI.tab==='starred'?'Aucun favori':'Aucun document',
+                 UI.tab==='starred'?"Marquez un document d'une étoile":'Touchez + pour numériser');
+  },
+  renderFiles(q='') {
+    q = (q||'').trim().toLowerCase();
+    let l = [...Doc.library].sort((a,b)=>b.updatedAt-a.updatedAt);
+    if (q) l = l.filter(d => d.name.toLowerCase().includes(q) || d.pages.some(p => (p.text||'').toLowerCase().includes(q)));
+    $('files-list').innerHTML = l.length ? l.map(UI.row).join('')
+      : UI.empty('Aucun résultat', q?"Essayez d'autres mots":'Vos documents apparaîtront ici');
+  },
+
+  openDoc(doc) {
+    Doc.current = doc;
+    $('doc-name').value = doc.name;
+    $('ocr-section').classList.add('hidden');
+    Ocr.tab = 0;
+    UI.show('doc');
+    UI.renderPages();
+  },
+
+  renderPages() {
+    const d = Doc.current; if (!d) return;
+    $('doc-chip').textContent = `${d.pages.length} page${d.pages.length>1?'s':''}`;
+    $('pages-grid').innerHTML = d.pages.length ? d.pages.map((p,i) => `
+      <div class="bg-surface border border-line rounded overflow-hidden">
+        <div class="relative">
+          <img src="${p.url}" data-a="edit" data-i="${i}" class="w-full h-36 object-cover bg-surface2" alt="Page ${i+1}">
+          <span class="absolute top-2 left-2 text-[10px] bg-black/70 px-1.5 py-0.5 rounded">${String(i+1).padStart(2,'0')}</span>
+          ${p.words&&p.words.length?`<span class="absolute bottom-2 left-2 text-[9px] px-1.5 py-0.5 rounded ${p.kind==='native'?'bg-teal-600 text-ink':'bg-gold-600 text-ink'}">${p.kind==='native'?'ÉDITABLE':'CORRIGEABLE'}</span>`:''}
+        </div>
+        <div class="flex items-center justify-between px-1 py-1.5 border-t border-line">
+          <button data-a="left" data-i="${i}" class="p-1.5 text-muted disabled:opacity-20" ${i===0?'disabled':''} aria-label="Avant">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+          <button data-a="rotate" data-i="${i}" class="p-1.5 text-muted" aria-label="Pivoter">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+          <button data-a="filter" data-i="${i}" class="p-1.5 text-muted" aria-label="Rendu">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg></button>
+          <button data-a="crop" data-i="${i}" class="p-1.5 text-muted" aria-label="Recadrer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 2v14a2 2 0 002 2h14M18 22V8a2 2 0 00-2-2H2"/></svg></button>
+          <button data-a="right" data-i="${i}" class="p-1.5 text-muted disabled:opacity-20" ${i===d.pages.length-1?'disabled':''} aria-label="Après">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
+          <button data-a="del" data-i="${i}" class="p-1.5 text-muted" aria-label="Supprimer">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
+        </div></div>`).join('')
+      : UI.empty('Document vide', 'Touchez + pour ajouter des pages');
+    Doc.save();
+  },
+};
+
+/* ---------------- Événements de navigation ---------------- */
+document.querySelectorAll('.nav-btn').forEach(b => b.addEventListener('click', () => {
+  if (b.dataset.nav === 'about') return UI.showAbout();
+  UI.show(b.dataset.nav);
+}));
+$('back-btn').addEventListener('click', () => { Doc.save(); UI.show('home'); });
+$('fab').addEventListener('click', () => $('sheet-new').classList.remove('hidden'));
+$('search-input').addEventListener('input', e => UI.renderFiles(e.target.value));
+$('doc-name').addEventListener('input', () => { if (Doc.current) { Doc.current.name = $('doc-name').value; Doc.save(); } });
+$('header-action').addEventListener('click', () => { if (Doc.current) UI.docMenu(Doc.current); });
+
+document.querySelectorAll('.tab-btn').forEach(b => b.addEventListener('click', () => {
+  UI.tab = b.dataset.tab;
+  document.querySelectorAll('.tab-btn').forEach(x => {
+    x.className = `tab-btn pb-2 text-xs font-medium border-b-2 ${x.dataset.tab===UI.tab?'tab-on':'border-transparent text-muted'}`;
+  });
+  UI.renderHome();
+}));
+
+['sheet-new','sheet-doc','sheet-about'].forEach(id =>
+  $(id).addEventListener('click', e => { if (e.target.hasAttribute('data-close')) $(id).classList.add('hidden'); }));
+
+UI.showAbout = function () {
+  $('ab-docs').textContent = Doc.library.length;
+  $('ab-pages').textContent = Doc.library.reduce((s,d)=>s+d.pages.length,0);
+  const t = CV.state==='ready'?'Active':CV.state==='failed'?'Indisponible':'Chargement…';
+  $('ab-cv').textContent = t;
+  $('ab-cv').className = 'font-semibold ' + (CV.state==='ready'?'text-teal-600':CV.state==='failed'?'text-orange-600':'text-muted');
+  $('sheet-about').classList.remove('hidden');
+};
+
+UI.docMenu = function (doc) {
+  UI.menuDoc = doc;
+  $('sheet-doc-title').textContent = doc.name;
+  $('sheet-doc').querySelector('[data-docact="star"]').textContent = doc.starred ? 'Retirer des favoris' : 'Ajouter aux favoris';
+  $('sheet-doc').classList.remove('hidden');
+};
 
 document.addEventListener('click', e => {
-  const b = e.target.closest('[data-quick],[data-tool]');
-  if (!b) return;
-  $('fab-sheet').classList.add('hidden');
-  handleAction(b.dataset.quick || b.dataset.tool);
+  const row = e.target.closest('[data-id]');
+  if (!row) return;
+  const doc = Doc.library.find(d => d.id === row.dataset.id);
+  if (!doc) return;
+  if (e.target.closest('.d-menu')) return UI.docMenu(doc);
+  if (e.target.closest('.d-open')) UI.openDoc(doc);
 });
 
-async function ensureDoc() {
-  if (!current) { current = newDoc(); await saveCurrent(); $('doc-name').value = current.name; }
-  return current;
-}
-
-async function handleAction(act) {
-  if (act === 'scan')       { await ensureDoc(); openCamera(); }
-  else if (act === 'import'){ await ensureDoc(); $('file-input').click(); }
-  else if (act === 'newdoc'){ current = newDoc(); await saveCurrent(); openDoc(current); refreshLists(); }
-  else if (act === 'sign')  { if (!requireDoc()) return; openSignature(); }
-  else if (act === 'ocr')   { if (!requireDoc()) return; runOcr(); }
-  else if (act === 'merge') { mergeDocs(); }
-}
-
-function requireDoc() {
-  if (current && current.pages.length) { showScreen('doc'); renderPages(); return true; }
-  const withPages = [...library].filter(d => d.pages.length).sort((a,b)=>b.updatedAt-a.updatedAt);
-  if (withPages.length) { openDoc(withPages[0]); return true; }
-  showToast("Numérisez ou importez d'abord une page", 'error');
-  return false;
-}
-
-async function mergeDocs() {
-  const docs = library.filter(d => d.pages.length);
-  if (docs.length < 2) { showToast('Il faut au moins deux documents', 'error'); return; }
-  if (!confirm(`Combiner ${docs.length} documents en un seul ?`)) return;
-  const merged = newDoc('Document combiné');
-  docs.forEach(d => merged.pages.push(...d.pages.map(p => ({...p}))));
-  current = merged;
-  await saveCurrent();
-  openDoc(merged); refreshLists();
-  showToast(`${merged.pages.length} pages combinées`, 'success');
-}
-
-$('header-action').addEventListener('click', () => { if (current) openDocMenu(current); });
-$('doc-name').addEventListener('input', () => { if (current) { current.name = $('doc-name').value; saveCurrent(); } });
-
-/* ================= PAGES ================= */
-function renderPages() {
-  if (!current) return;
-  const pages = current.pages;
-  $('doc-chip').textContent = `${pages.length} page${pages.length>1?'s':''}`;
-  $('pages-grid').innerHTML = pages.length ? pages.map((page, i) => `
-    <div class="bg-surface border border-line rounded overflow-hidden">
-      <div class="relative">
-        <img src="${page.url}" data-act="edit" data-idx="${i}" class="w-full h-36 object-cover bg-surface2 cursor-pointer" alt="Page ${i+1}">
-        <span class="absolute top-2 left-2 font-mono text-[10px] bg-black/70 px-1.5 py-0.5 rounded-full">${String(i+1).padStart(2,'0')}</span>
-        ${page.ocrWords && page.ocrWords.length ? `<span class="absolute bottom-2 left-2 font-mono text-[9px] px-1.5 py-0.5 rounded-full ${page.kind==='native'?'bg-teal-600':'bg-gold-600 text-ink'}">${page.kind==='native'?'ÉDITABLE':'CORRIGEABLE'}</span>`:''}
-      </div>
-      <div class="flex items-center justify-between px-1.5 py-1.5 border-t border-line">
-        <button data-act="left" data-idx="${i}" class="p-1.5 text-muted disabled:opacity-20" ${i===0?'disabled':''} aria-label="Avant">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
-        <button data-act="rotate" data-idx="${i}" class="p-1.5 text-muted" aria-label="Pivoter">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
-        <button data-act="enhance" data-idx="${i}" class="p-1.5 ${page.enhanced?'text-teal-600':'text-muted'}" aria-label="Améliorer">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg></button>
-        <button data-act="right" data-idx="${i}" class="p-1.5 text-muted disabled:opacity-20" ${i===pages.length-1?'disabled':''} aria-label="Après">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg></button>
-        <button data-act="delete" data-idx="${i}" class="p-1.5 text-muted" aria-label="Supprimer">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>
-      </div>
-    </div>`).join('')
-    : emptyBlock('Document vide', 'Touchez + pour ajouter des pages');
-  saveCurrent();
-}
-
-$('pages-grid').addEventListener('click', async e => {
-  const thumb = e.target.closest('img[data-act="edit"]');
-  if (thumb) { openEditor(+thumb.dataset.idx); return; }
-  const btn = e.target.closest('button[data-act]');
-  if (!btn || !current) return;
-  const i = +btn.dataset.idx, act = btn.dataset.act, pages = current.pages;
-  if (act === 'delete') pages.splice(i,1);
-  else if (act === 'left' && i>0) [pages[i-1],pages[i]] = [pages[i],pages[i-1]];
-  else if (act === 'right' && i<pages.length-1) [pages[i+1],pages[i]] = [pages[i],pages[i+1]];
-  else if (act === 'rotate') {
-    pages[i].url = await rotateDataUrl(pages[i].url, 90);
-    pages[i].rawUrl = pages[i].url;
-    // Les positions de mots ne sont plus valides après rotation
-    if (pages[i].ocrWords) { pages[i].ocrWords = undefined; pages[i].kind = 'scan'; }
-  } else if (act === 'enhance') {
-    if (!pages[i].rawUrl) pages[i].rawUrl = pages[i].url;
-    pages[i].enhanced = !pages[i].enhanced;
-    showToast('Traitement…','info');
-    pages[i].url = pages[i].enhanced ? await processScan(pages[i].rawUrl,'bw') : pages[i].rawUrl;
+$('sheet-doc').addEventListener('click', async e => {
+  const b = e.target.closest('[data-docact]');
+  if (!b || !UI.menuDoc) return;
+  const d = UI.menuDoc, act = b.dataset.docact;
+  $('sheet-doc').classList.add('hidden');
+  if (act === 'open') UI.openDoc(d);
+  else if (act === 'star') { d.starred = !d.starred; await DB.put(d); UI.refresh(); }
+  else if (act === 'rename') {
+    const n = prompt('Nom du document', d.name);
+    if (n && n.trim()) { d.name = n.trim(); await DB.put(d); if (Doc.current?.id===d.id) $('doc-name').value=d.name; UI.refresh(); }
   }
-  renderPages();
+  else if (act === 'export') { const k = Doc.current; Doc.current = d; Export.pdf(); Doc.current = k; }
+  else if (act === 'delete' && confirm(`Supprimer "${d.name}" ?`)) {
+    await DB.del(d.id);
+    Doc.library = Doc.library.filter(x => x.id !== d.id);
+    if (Doc.current?.id === d.id) { Doc.current = null; UI.show('home'); }
+    UI.refresh(); toast('Supprimé', 'ok');
+  }
 });
+UI.refresh = () => { if (UI.screen==='home') UI.renderHome(); if (UI.screen==='files') UI.renderFiles($('search-input').value); };
 
-function addPage(dataUrl, meta = {}) {
-  const words = meta.words || [];
-  current.pages.push({
-    url: dataUrl, rawUrl: dataUrl,
-    ocrText: words.length ? words.map(w=>w.text).join(' ') : '',
-    ocrWords: words.length ? words : undefined,
-    kind: meta.kind || 'scan', enhanced: false,
-  });
-  renderPages();
+/* ---------------- Actions principales ---------------- */
+document.addEventListener('click', e => {
+  const b = e.target.closest('[data-act]');
+  if (!b) return;
+  $('sheet-new').classList.add('hidden');
+  const a = b.dataset.act;
+  if (a === 'scan')        Doc.ensure().then(Cam.open);
+  else if (a === 'import') Doc.ensure().then(() => $('file-input').click());
+  else if (a === 'newdoc') Doc.ensure.call(null), (async()=>{ Doc.current = Doc.make(); await Doc.save(); UI.openDoc(Doc.current); UI.refresh(); })();
+  else if (a === 'sign')   { if (need()) Sig.open(); }
+  else if (a === 'ocr')    { if (need()) Ocr.run(); }
+  else if (a === 'merge')  merge();
+});
+function need() {
+  if (Doc.current?.pages.length) { UI.show('doc'); UI.renderPages(); return true; }
+  const w = Doc.library.filter(d => d.pages.length).sort((a,b)=>b.updatedAt-a.updatedAt);
+  if (w.length) { UI.openDoc(w[0]); return true; }
+  toast("Numérisez d'abord une page", 'err'); return false;
+}
+async function merge() {
+  const ds = Doc.library.filter(d => d.pages.length);
+  if (ds.length < 2) return toast('Il faut au moins deux documents', 'err');
+  if (!confirm(`Combiner ${ds.length} documents ?`)) return;
+  const m = Doc.make('Document combiné');
+  ds.forEach(d => m.pages.push(...d.pages.map(p => ({...p}))));
+  Doc.current = m; await Doc.save(); UI.openDoc(m); UI.refresh();
+  toast(`${m.pages.length} pages combinées`, 'ok');
 }
 
-/* ================= IMPORT ================= */
+/* ---------------- Actions sur les pages ---------------- */
+$('pages-grid').addEventListener('click', async e => {
+  const t = e.target.closest('[data-a]');
+  if (!t || !Doc.current) return;
+  const i = +t.dataset.i, a = t.dataset.a, pages = Doc.current.pages;
+  if (a === 'edit')       return Edit.open(i);
+  if (a === 'del')        pages.splice(i,1);
+  else if (a === 'left'  && i>0) [pages[i-1],pages[i]]=[pages[i],pages[i-1]];
+  else if (a === 'right' && i<pages.length-1) [pages[i+1],pages[i]]=[pages[i],pages[i+1]];
+  else if (a === 'rotate') {
+    toast('Rotation…');
+    pages[i].url = await rotate(pages[i].url);
+    pages[i].raw = await rotate(pages[i].raw);
+    if (pages[i].words) { pages[i].words = null; pages[i].kind = 'scan'; } // repères invalidés
+  }
+  else if (a === 'filter') {
+    const order = ['auto','gray','bw','photo'];
+    const next = order[(order.indexOf(pages[i].filter||'auto')+1) % order.length];
+    toast('Rendu : ' + next);
+    const img = await loadImage(pages[i].raw);
+    const c = canvasOf(img.width, img.height);
+    c.getContext('2d').drawImage(img,0,0);
+    pages[i].url = Scan.process(c, next).toDataURL('image/jpeg', CFG.JPEG);
+    pages[i].filter = next;
+  }
+  else if (a === 'crop') return Crop.open(pages[i].raw, { pageIndex: i });
+  UI.renderPages();
+});
+
+function rotate(url, deg = 90) {
+  return loadImage(url).then(img => {
+    const sw = deg % 180 !== 0;
+    const c = canvasOf(sw?img.height:img.width, sw?img.width:img.height);
+    const x = c.getContext('2d');
+    x.translate(c.width/2, c.height/2); x.rotate(deg*Math.PI/180);
+    x.drawImage(img, -img.width/2, -img.height/2);
+    return c.toDataURL('image/jpeg', CFG.JPEG);
+  });
+}
+
+/* ---------------- Import ---------------- */
 $('file-input').addEventListener('change', async e => {
-  const files = Array.from(e.target.files);
-  await ensureDoc();
-  let added = 0;
-  for (const file of files) {
-    if (file.type.startsWith('image/')) { addPage(await fileToDataUrl(file)); added++; }
-    else if (file.type === 'application/pdf') {
+  const files = [...e.target.files];
+  await Doc.ensure();
+  let n = 0;
+  for (const f of files) {
+    if (f.type.startsWith('image/')) {
+      const url = await blobToURL(f);
+      const img = await loadImage(url);
+      let c = canvasOf(img.width, img.height);
+      c.getContext('2d').drawImage(img,0,0);
+      c = Scan.fit(c);
+      await Doc.addPage(c.toDataURL('image/jpeg', CFG.JPEG), { raw: c.toDataURL('image/jpeg', CFG.JPEG), filter:'photo' });
+      n++;
+    } else if (f.type === 'application/pdf') {
       pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
-      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-      for (let i = 1; i <= pdf.numPages; i++) {
-        const page = await pdf.getPage(i);
-        const viewport = page.getViewport({ scale: 2.5 });
-        const canvas = document.createElement('canvas');
-        canvas.width = viewport.width; canvas.height = viewport.height;
-        await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      const pdf = await pdfjsLib.getDocument({ data: await f.arrayBuffer() }).promise;
+      for (let i=1;i<=pdf.numPages;i++) {
+        const pg = await pdf.getPage(i);
+        const vp = pg.getViewport({ scale: 2.5 });
+        const c = canvasOf(vp.width, vp.height);
+        await pg.render({ canvasContext: c.getContext('2d'), viewport: vp }).promise;
         let words = [];
-        try { words = extractNativeWords(await page.getTextContent(), viewport, page); } catch(err) { words = []; }
-        addPage(canvas.toDataURL('image/jpeg', 0.92), { kind: words.length ? 'native':'scan', words });
-        added++;
+        try { words = Native.words(await pg.getTextContent(), vp, pg); } catch(_) {}
+        const u = c.toDataURL('image/jpeg', CFG.JPEG);
+        await Doc.addPage(u, { raw:u, filter:'photo', kind: words.length?'native':'scan', words });
+        n++;
       }
     }
   }
-  if (added) { showScreen('doc'); showToast(`${added} page(s) importée(s)`, 'success'); }
+  if (n) { UI.openDoc(Doc.current); toast(`${n} page(s) importée(s)`, 'ok'); }
   e.target.value = '';
 });
 
-function fileToDataUrl(file) {
-  return new Promise((res, rej) => {
-    const r = new FileReader();
-    r.onload = e => res(e.target.result); r.onerror = rej; r.readAsDataURL(file);
-  });
-}
-
-// PDF.js renvoie des lignes : on les redécoupe en mots et on résout la vraie
-// police (disponible seulement après le rendu de la page).
-function extractNativeWords(content, viewport, pdfPage) {
-  const meas = document.createElement('canvas').getContext('2d');
-  const out = [];
-  (content.items || []).forEach(item => {
-    const line = item.str || '';
-    if (!line.trim()) return;
-    const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
-    const fontHeight = Math.hypot(tx[2], tx[3]);
-    const totalWidth = (item.width || 0) * viewport.scale;
-    if (fontHeight <= 0 || totalWidth <= 0) return;
-    const baseline = tx[5];
-    const info = resolveFont(pdfPage, item.fontName);
-    meas.font = `${info.italic?'italic ':''}${info.bold?'bold ':''}${fontHeight}px ${info.family}`;
-    const natural = meas.measureText(line).width;
-    const ratio = natural > 0 ? totalWidth / natural : 1;
-    let cursor = tx[4];
-    line.split(/(\s+)/).forEach(part => {
-      if (!part) return;
-      const pw = meas.measureText(part).width * ratio;
-      if (part.trim()) out.push({
-        text: part, x0: cursor, y0: baseline - fontHeight*0.82,
-        x1: cursor + pw, y1: baseline + fontHeight*0.20,
-        fontName: info.name, fontFamily: info.family, bold: info.bold, italic: info.italic,
-        fontPx: fontHeight, baseline,
+// Couche texte d'un PDF natif : lignes redécoupées en mots + vraie police
+const Native = {
+  words(content, vp, page) {
+    const m = canvasOf(10,10).getContext('2d');
+    const out = [];
+    (content.items||[]).forEach(it => {
+      const line = it.str || '';
+      if (!line.trim()) return;
+      const tx = pdfjsLib.Util.transform(vp.transform, it.transform);
+      const fh = Math.hypot(tx[2], tx[3]);
+      const tw = (it.width||0) * vp.scale;
+      if (fh <= 0 || tw <= 0) return;
+      const base = tx[5], f = Native.font(page, it.fontName);
+      m.font = `${f.italic?'italic ':''}${f.bold?'bold ':''}${fh}px ${f.family}`;
+      const nat = m.measureText(line).width;
+      const k = nat > 0 ? tw/nat : 1;
+      let cur = tx[4];
+      line.split(/(\s+)/).forEach(part => {
+        if (!part) return;
+        const pw = m.measureText(part).width * k;
+        if (part.trim()) out.push({ text:part, x0:cur, y0:base-fh*0.82, x1:cur+pw, y1:base+fh*0.20,
+          fontName:f.name, fontFamily:f.family, bold:f.bold, italic:f.italic, fontPx:fh, baseline:base });
+        cur += pw;
       });
-      cursor += pw;
     });
-  });
-  return out;
-}
+    return out;
+  },
+  font(page, ref) {
+    let name='', fb='', it=false;
+    try { const f = page.commonObjs.get(ref); if (f) { name=f.name||''; fb=f.fallbackName||''; it=!!f.italic; } } catch(_){}
+    const n = (name+' '+fb).toLowerCase();
+    let family = 'Helvetica, Arial, sans-serif';
+    if (/times|roman|georgia|garamond|book|serif/.test(n) && !/sans-serif/.test(n)) family = '"Times New Roman", Times, serif';
+    else if (/courier|mono/.test(n)) family = '"Courier New", Courier, monospace';
+    return { name: name||ref||'', family, bold:/bold|black|heavy|semibold/.test(n), italic: it||/italic|oblique/.test(n) };
+  },
+};
 
-function resolveFont(pdfPage, fontRef) {
-  let name = '', fallback = '', italic = false;
-  try { const f = pdfPage.commonObjs.get(fontRef); if (f) { name=f.name||''; fallback=f.fallbackName||''; italic=!!f.italic; } } catch(e){}
-  const n = (name + ' ' + fallback).toLowerCase();
-  const bold = /bold|black|heavy|semibold/.test(n);
-  italic = italic || /italic|oblique/.test(n);
-  let family = 'Helvetica, Arial, sans-serif';
-  if (/times|roman|georgia|garamond|book|serif/.test(n) && !/sans-serif/.test(n)) family = '"Times New Roman", Times, serif';
-  else if (/courier|mono/.test(n)) family = '"Courier New", Courier, monospace';
-  return { name: name || fontRef || '', family, bold, italic };
-}
+/* ============================================================
+   RECADRAGE MANUEL (retouche après coup)
+   ============================================================ */
+const Crop = {
+  img:null, quad:[], scale:1, drag:-1, pageIndex:-1, filter:'auto',
 
-/* ================= CAMÉRA ================= */
-let mediaStream = null, videoTrack = null, imageCapture = null;
-const webcamFeed = $('webcam-feed'), cameraModal = $('camera-modal'), hiddenCanvas = $('hidden-canvas');
-
-async function openCamera() {
-  try {
-    // Résolution demandée très supérieure à l'aperçu par défaut
-    mediaStream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode:{ideal:'environment'}, width:{ideal:4096}, height:{ideal:3072}, advanced:[{focusMode:'continuous'}] }
+  async open(url, opts={}) {
+    const img = await loadImage(url);
+    Crop.img = img; Crop.pageIndex = opts.pageIndex ?? -1;
+    Crop.filter = Doc.current?.pages[Crop.pageIndex]?.filter || 'auto';
+    Crop.paintFilterButtons();
+    const c = $('crop-canvas');
+    const s = Math.min((Math.min(innerWidth-24,900))/img.width, (innerHeight*0.55)/img.height, 1);
+    Crop.scale = s;
+    c.width = img.width*s; c.height = img.height*s;
+    c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+    $('crop-svg').setAttribute('viewBox', `0 0 ${c.width} ${c.height}`);
+    $('crop').classList.remove('hidden');
+    Crop.detect();
+  },
+  full() {
+    const c = $('crop-canvas'), m = 0.03;
+    return [{x:c.width*m,y:c.height*m},{x:c.width*(1-m),y:c.height*m},
+            {x:c.width*(1-m),y:c.height*(1-m)},{x:c.width*m,y:c.height*(1-m)}];
+  },
+  detect() { Crop.quad = Scan.detect($('crop-canvas')) || Crop.full(); Crop.draw(); },
+  draw() {
+    $('crop-svg').innerHTML =
+      `<polygon class="crop-edge" points="${Crop.quad.map(p=>p.x+','+p.y).join(' ')}"/>` +
+      Crop.quad.map(p=>`<circle class="crop-handle" cx="${p.x}" cy="${p.y}" r="11"/>`).join('');
+  },
+  pos(e) {
+    const r = $('crop-canvas').getBoundingClientRect();
+    const x = (e.touches?e.touches[0].clientX:e.clientX), y = (e.touches?e.touches[0].clientY:e.clientY);
+    return { x:(x-r.left)*($('crop-canvas').width/r.width), y:(y-r.top)*($('crop-canvas').height/r.height) };
+  },
+  paintFilterButtons() {
+    document.querySelectorAll('.fbtn').forEach(b => {
+      b.className = `fbtn px-4 py-2 rounded text-[11px] font-semibold ${b.dataset.filter===Crop.filter?'bg-teal-600 text-ink':'bg-surface2 text-muted'}`;
     });
-    videoTrack = mediaStream.getVideoTracks()[0];
-    imageCapture = (window.ImageCapture && videoTrack) ? new ImageCapture(videoTrack) : null;
-    webcamFeed.srcObject = mediaStream;
-    $('cam-page-count').textContent = current ? current.pages.length : 0;
-    cameraModal.classList.remove('hidden');
-  } catch(e) { showToast("Impossible d'accéder à la caméra", 'error'); }
-}
-function stopCamera() {
-  if (mediaStream) mediaStream.getTracks().forEach(t=>t.stop());
-  mediaStream = videoTrack = imageCapture = null;
-  cameraModal.classList.add('hidden');
-}
-$('close-camera-btn').addEventListener('click', stopCamera);
-
-function blobToDataUrl(blob) {
-  return new Promise((res, rej) => { const r=new FileReader(); r.onload=e=>res(e.target.result); r.onerror=rej; r.readAsDataURL(blob); });
-}
-function capResolution(dataUrl, maxDim = 2800) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      if (Math.max(img.width,img.height) <= maxDim) return resolve(dataUrl);
-      const s = maxDim / Math.max(img.width,img.height);
-      const c = document.createElement('canvas');
-      c.width = img.width*s; c.height = img.height*s;
-      c.getContext('2d').drawImage(img,0,0,c.width,c.height);
-      resolve(c.toDataURL('image/jpeg',0.95));
-    };
-    img.src = dataUrl;
-  });
-}
-
-$('capture-btn').addEventListener('click', async () => {
-  const fl = $('flash-overlay');
-  fl.classList.remove('flash-anim'); void fl.offsetWidth; fl.classList.add('flash-anim');
-  let dataUrl = null;
-  // Vraie photo capteur plutôt qu'une frame de l'aperçu vidéo
-  if (imageCapture && imageCapture.takePhoto) {
-    try { dataUrl = await blobToDataUrl(await imageCapture.takePhoto()); } catch(e) { dataUrl = null; }
-  }
-  if (!dataUrl) {
-    if (!webcamFeed.videoWidth) return;
-    hiddenCanvas.width = webcamFeed.videoWidth; hiddenCanvas.height = webcamFeed.videoHeight;
-    hiddenCanvas.getContext('2d').drawImage(webcamFeed,0,0);
-    dataUrl = hiddenCanvas.toDataURL('image/jpeg',0.95);
-  }
-  dataUrl = await capResolution(dataUrl);
-  stopCamera();
-  openCropEditor(dataUrl, { process: true });
+  },
+};
+$('crop-stage').addEventListener('touchstart', e => {
+  const p = Crop.pos(e); let n=-1, min=34;
+  Crop.quad.forEach((q,i)=>{ const d=dist(q,p); if(d<min){min=d;n=i;} });
+  Crop.drag=n; if(n>=0) e.preventDefault();
+}, { passive:false });
+$('crop-stage').addEventListener('mousedown', e => {
+  const p = Crop.pos(e); let n=-1, min=34;
+  Crop.quad.forEach((q,i)=>{ const d=dist(q,p); if(d<min){min=d;n=i;} });
+  Crop.drag=n;
 });
-
-/* ================= TRAITEMENT D'IMAGE ================= */
-function estimateBackground(srcCanvas, divisor = 24) {
-  const sw = Math.max(2, Math.round(srcCanvas.width/divisor));
-  const sh = Math.max(2, Math.round(srcCanvas.height/divisor));
-  const small = document.createElement('canvas');
-  small.width=sw; small.height=sh;
-  const sctx = small.getContext('2d');
-  sctx.filter = 'blur(2px)';
-  sctx.drawImage(srcCanvas,0,0,sw,sh);
-  const big = document.createElement('canvas');
-  big.width = srcCanvas.width; big.height = srcCanvas.height;
-  const bctx = big.getContext('2d');
-  bctx.imageSmoothingEnabled = true; bctx.imageSmoothingQuality='high';
-  bctx.drawImage(small,0,0,srcCanvas.width,srcCanvas.height);
-  return bctx.getImageData(0,0,srcCanvas.width,srcCanvas.height).data;
-}
-
-// Supprime ombres et éclairage inégal en divisant l'image par son fond estimé,
-// puis remet le papier à blanc : c'est ce qui donne un rendu "scan", pas "photo".
-function processScan(dataUrl, mode='auto') {
-  return new Promise(resolve => {
-    if (mode === 'photo') return resolve(dataUrl);
-    const img = new Image();
-    img.onload = () => {
-      const w = img.width, h = img.height;
-      const canvas = document.createElement('canvas');
-      canvas.width=w; canvas.height=h;
-      const ctx = canvas.getContext('2d');
-      ctx.drawImage(img,0,0);
-      try {
-        const src = ctx.getImageData(0,0,w,h), sd = src.data;
-        const bg = estimateBackground(canvas);
-        // 1) division par le fond (plancher pour éviter les zones explosives)
-        for (let i=0;i<sd.length;i+=4)
-          for (let c=0;c<3;c++) {
-            const v = (sd[i+c] / Math.max(bg[i+c],32)) * 245;
-            sd[i+c] = v>255?255:v;
-          }
-        // 2) mise à plat du papier + désaturation (supprime le bruit coloré)
-        for (let i=0;i<sd.length;i+=4) {
-          const lum = sd[i]*0.299 + sd[i+1]*0.587 + sd[i+2]*0.114;
-          if (lum >= 214) { sd[i]=sd[i+1]=sd[i+2]=255; }
-          else {
-            const t = Math.max(0, Math.min(1, (lum-110)/104));
-            sd[i]+= (lum-sd[i])*t; sd[i+1]+=(lum-sd[i+1])*t; sd[i+2]+=(lum-sd[i+2])*t;
-          }
-        }
-        // 3) étalement du contraste
-        const hist = new Uint32Array(256);
-        for (let i=0;i<sd.length;i+=40) hist[(sd[i]*0.299+sd[i+1]*0.587+sd[i+2]*0.114)|0]++;
-        let total=0; for (let i=0;i<256;i++) total+=hist[i];
-        let acc=0, low=0, high=255;
-        for (let i=0;i<256;i++){acc+=hist[i]; if(acc>total*0.02){low=i;break;}}
-        acc=0;
-        for (let i=255;i>=0;i--){acc+=hist[i]; if(acc>total*0.25){high=i;break;}}
-        if (high-low < 40) { low=0; high=255; }
-        const range = high-low;
-        if (mode === 'bw') {
-          const t = low + range*0.60;
-          for (let i=0;i<sd.length;i+=4) {
-            const l = sd[i]*0.299+sd[i+1]*0.587+sd[i+2]*0.114;
-            const v = l<t?0:255; sd[i]=sd[i+1]=sd[i+2]=v;
-          }
-        } else {
-          for (let i=0;i<sd.length;i+=4)
-            for (let c=0;c<3;c++) {
-              let v = ((sd[i+c]-low)/range)*255;
-              v = v<0?0:(v>255?255:v);
-              v = v<128 ? 128*Math.pow(v/128,1.25) : 255-127*Math.pow((255-v)/127,1.25);
-              sd[i+c]=v;
-            }
-        }
-        ctx.putImageData(src,0,0);
-        // 4) accentuation des contours du texte
-        const a = ctx.getImageData(0,0,w,h), out = ctx.createImageData(w,h);
-        const ad=a.data, od=out.data;
-        const k=[0,-0.4,0,-0.4,2.6,-0.4,0,-0.4,0];
-        for (let y=0;y<h;y++) for (let x=0;x<w;x++) {
-          const i=(y*w+x)*4;
-          if (x===0||y===0||x===w-1||y===h-1) { od[i]=ad[i];od[i+1]=ad[i+1];od[i+2]=ad[i+2];od[i+3]=255; continue; }
-          for (let c=0;c<3;c++) {
-            let sum=0, ki=0;
-            for (let dy=-1;dy<=1;dy++) for (let dx=-1;dx<=1;dx++,ki++) sum += ad[((y+dy)*w+(x+dx))*4+c]*k[ki];
-            od[i+c] = sum<0?0:(sum>255?255:sum);
-          }
-          od[i+3]=255;
-        }
-        ctx.putImageData(out,0,0);
-      } catch(e) {
-        ctx.filter='contrast(1.3) brightness(1.1)'; ctx.drawImage(img,0,0);
-      }
-      resolve(canvas.toDataURL('image/jpeg',0.95));
-    };
-    img.onerror = () => resolve(dataUrl);
-    img.src = dataUrl;
-  });
-}
-
-function rotateDataUrl(dataUrl, deg) {
-  return new Promise(resolve => {
-    const img = new Image();
-    img.onload = () => {
-      const swap = deg % 180 !== 0;
-      const w = swap?img.height:img.width, h = swap?img.width:img.height;
-      const c = document.createElement('canvas');
-      c.width=w; c.height=h;
-      const ctx=c.getContext('2d');
-      ctx.translate(w/2,h/2); ctx.rotate(deg*Math.PI/180);
-      ctx.drawImage(img,-img.width/2,-img.height/2);
-      resolve(c.toDataURL('image/jpeg',0.92));
-    };
-    img.src = dataUrl;
-  });
-}
-
-/* ================= RECADRAGE ================= */
-const cropModal=$('crop-modal'), cropCanvas=$('crop-canvas'), cropOverlay=$('crop-overlay'),
-      cropStage=$('crop-stage'), cropHint=$('crop-hint');
-const cropState = { img:null, corners:[], scale:1, dragIndex:-1, userAdjusted:false, process:false };
-let selectedFilter = 'auto';
-
-const cvReady = () => typeof cv !== 'undefined' && cv && typeof cv.Mat === 'function';
-document.addEventListener('opencv-ready', () => {
-  if (!cropModal.classList.contains('hidden') && !cropState.userAdjusted) autoDetect();
-});
-
-function openCropEditor(dataUrl, opts={}) {
-  const img = new Image();
-  img.onload = () => {
-    cropState.img = img;
-    cropState.process = !!opts.process;
-    cropState.userAdjusted = false;
-    const maxW = Math.min(window.innerWidth-24, 900), maxH = window.innerHeight*0.55;
-    const scale = Math.min(maxW/img.width, maxH/img.height, 1);
-    cropState.scale = scale;
-    cropCanvas.width = img.width*scale; cropCanvas.height = img.height*scale;
-    cropCanvas.getContext('2d').drawImage(img,0,0,cropCanvas.width,cropCanvas.height);
-    cropOverlay.setAttribute('viewBox', `0 0 ${cropCanvas.width} ${cropCanvas.height}`);
-    cropModal.classList.remove('hidden');
-    autoDetect();
-  };
-  img.src = dataUrl;
-}
-
-function fullFrameCorners() {
-  const w=cropCanvas.width, h=cropCanvas.height, m=0.04;
-  return [{x:w*m,y:h*m},{x:w*(1-m),y:h*m},{x:w*(1-m),y:h*(1-m)},{x:w*m,y:h*(1-m)}];
-}
-
-function autoDetect() {
-  if (!cvReady()) {
-    cropState.corners = fullFrameCorners();
-    cropHint.textContent = window.__cvState==='failed'
-      ? 'Détection auto indisponible — ajustez les coins'
-      : 'Chargement de la détection… ajustez entre-temps';
-    return drawOverlay();
-  }
-  try {
-    const d = detectDocumentCorners();
-    cropState.corners = d || fullFrameCorners();
-    cropHint.textContent = d ? 'Bords détectés — ajustez si nécessaire' : 'Aucun bord net — cadrez manuellement';
-  } catch(e) { cropState.corners = fullFrameCorners(); cropHint.textContent = 'Cadrez manuellement'; }
-  drawOverlay();
-}
-
-function detectDocumentCorners() {
-  const src = cv.imread(cropCanvas);
-  const gray=new cv.Mat(), blur=new cv.Mat(), edges=new cv.Mat();
-  const contours=new cv.MatVector(), hierarchy=new cv.Mat();
-  let result=null;
-  try {
-    cv.cvtColor(src,gray,cv.COLOR_RGBA2GRAY);
-    cv.GaussianBlur(gray,blur,new cv.Size(5,5),0);
-    cv.Canny(blur,edges,60,180);
-    const kernel = cv.getStructuringElement(cv.MORPH_RECT,new cv.Size(3,3));
-    cv.dilate(edges,edges,kernel); kernel.delete();
-    cv.findContours(edges,contours,hierarchy,cv.RETR_LIST,cv.CHAIN_APPROX_SIMPLE);
-    const frameArea = cropCanvas.width*cropCanvas.height;
-    let best=null, bestArea=0;
-    for (let i=0;i<contours.size();i++) {
-      const c = contours.get(i);
-      const approx = new cv.Mat();
-      cv.approxPolyDP(c, approx, 0.02*cv.arcLength(c,true), true);
-      const area = Math.abs(cv.contourArea(approx));
-      if (approx.rows===4 && area>bestArea && area>frameArea*0.18 && cv.isContourConvex(approx)) {
-        bestArea=area; if (best) best.delete(); best=approx;
-      } else approx.delete();
-      c.delete();
-    }
-    if (best) {
-      const pts=[];
-      for (let i=0;i<4;i++) pts.push({x:best.data32S[i*2], y:best.data32S[i*2+1]});
-      best.delete();
-      result = orderCorners(pts);
-    }
-  } finally { src.delete();gray.delete();blur.delete();edges.delete();contours.delete();hierarchy.delete(); }
-  return result;
-}
-
-function orderCorners(pts) {
-  const cx = pts.reduce((s,p)=>s+p.x,0)/4, cy = pts.reduce((s,p)=>s+p.y,0)/4;
-  const tl=pts.filter(p=>p.x<=cx&&p.y<=cy)[0], tr=pts.filter(p=>p.x>cx&&p.y<=cy)[0];
-  const br=pts.filter(p=>p.x>cx&&p.y>cy)[0], bl=pts.filter(p=>p.x<=cx&&p.y>cy)[0];
-  if (tl&&tr&&br&&bl) return [tl,tr,br,bl];
-  return [...pts].sort((a,b)=>Math.atan2(a.y-cy,a.x-cx)-Math.atan2(b.y-cy,b.x-cx));
-}
-
-function drawOverlay() {
-  const c = cropState.corners;
-  if (!c.length) return;
-  cropOverlay.innerHTML =
-    `<polygon class="crop-edge" points="${c.map(p=>`${p.x},${p.y}`).join(' ')}"/>` +
-    c.map((p,i)=>`<circle class="crop-handle" data-i="${i}" cx="${p.x}" cy="${p.y}" r="11"/>`).join('');
-}
-
-function stagePos(e) {
-  const r = cropCanvas.getBoundingClientRect();
-  const cx = e.touches?e.touches[0].clientX:e.clientX;
-  const cy = e.touches?e.touches[0].clientY:e.clientY;
-  return { x:(cx-r.left)*(cropCanvas.width/r.width), y:(cy-r.top)*(cropCanvas.height/r.height) };
-}
-function onCropDown(e) {
-  const p = stagePos(e);
-  let n=-1, min=34;
-  cropState.corners.forEach((c,i)=>{ const d=Math.hypot(c.x-p.x,c.y-p.y); if(d<min){min=d;n=i;} });
-  cropState.dragIndex = n;
-  if (n>=0) { cropState.userAdjusted = true; e.preventDefault(); }
-}
-function onCropMove(e) {
-  if (cropState.dragIndex<0) return;
+const cropMove = e => {
+  if (Crop.drag<0) return;
   e.preventDefault();
-  const p = stagePos(e);
-  cropState.corners[cropState.dragIndex] = {
-    x: Math.max(0,Math.min(cropCanvas.width,p.x)),
-    y: Math.max(0,Math.min(cropCanvas.height,p.y))
-  };
-  drawOverlay();
-}
-cropStage.addEventListener('mousedown',onCropDown);
-window.addEventListener('mousemove',onCropMove);
-window.addEventListener('mouseup',()=>cropState.dragIndex=-1);
-cropStage.addEventListener('touchstart',onCropDown,{passive:false});
-cropStage.addEventListener('touchmove',onCropMove,{passive:false});
-cropStage.addEventListener('touchend',()=>cropState.dragIndex=-1);
-
-$('crop-auto-btn').addEventListener('click', autoDetect);
-$('crop-reset-btn').addEventListener('click', () => { cropState.corners=fullFrameCorners(); drawOverlay(); });
-$('crop-cancel-btn').addEventListener('click', () => { cropModal.classList.add('hidden'); cropState.img=null; });
-
-document.querySelectorAll('.filter-btn').forEach(b => b.addEventListener('click', () => {
-  selectedFilter = b.dataset.filter;
-  document.querySelectorAll('.filter-btn').forEach(x => {
-    const on = x.dataset.filter === selectedFilter;
-    x.className = `filter-btn px-4 py-2 rounded text-[11px] font-mono font-semibold ${on?'bg-teal-600 text-ink':'bg-surface2 text-muted'}`;
-  });
+  const p = Crop.pos(e), c = $('crop-canvas');
+  Crop.quad[Crop.drag] = { x:Math.max(0,Math.min(c.width,p.x)), y:Math.max(0,Math.min(c.height,p.y)) };
+  Crop.draw();
+};
+$('crop-stage').addEventListener('touchmove', cropMove, { passive:false });
+addEventListener('mousemove', cropMove);
+addEventListener('mouseup', ()=>Crop.drag=-1);
+$('crop-stage').addEventListener('touchend', ()=>Crop.drag=-1);
+$('crop-detect').addEventListener('click', () => Crop.detect());
+$('crop-full').addEventListener('click', () => { Crop.quad = Crop.full(); Crop.draw(); });
+$('crop-cancel').addEventListener('click', () => { $('crop').classList.add('hidden'); Crop.img=null; });
+document.querySelectorAll('.fbtn').forEach(b => b.addEventListener('click', () => {
+  Crop.filter = b.dataset.filter; Crop.paintFilterButtons();
 }));
-
-$('crop-apply-btn').addEventListener('click', async () => {
-  let result = applyPerspective();
-  const doProcess = cropState.process;
-  cropModal.classList.add('hidden');
-  cropState.img = null;
-  if (!result) return;
-  if (doProcess && selectedFilter !== 'photo') {
-    showToast('Traitement du document…','info');
-    result = await processScan(result, selectedFilter);
+$('crop-ok').addEventListener('click', async () => {
+  const img = Crop.img; if (!img) return;
+  $('crop').classList.add('hidden');
+  toast('Traitement…');
+  await nextFrame();
+  const inv = 1/Crop.scale;
+  const quad = Crop.quad.map(p => ({ x:p.x*inv, y:p.y*inv }));
+  const src = canvasOf(img.width, img.height);
+  src.getContext('2d').drawImage(img,0,0);
+  const warped = Scan.warp(src, quad) || src;
+  const raw = warped.toDataURL('image/jpeg', CFG.JPEG);
+  await nextFrame();
+  const done = Scan.process(warped, Crop.filter).toDataURL('image/jpeg', CFG.JPEG);
+  if (Crop.pageIndex >= 0 && Doc.current) {
+    const p = Doc.current.pages[Crop.pageIndex];
+    p.url = done; p.raw = raw; p.filter = Crop.filter;
+    p.words = null; p.kind = 'scan';   // repères invalidés par le recadrage
+  } else {
+    await Doc.addPage(done, { raw, filter: Crop.filter });
   }
-  await ensureDoc();
-  addPage(result);
-  showScreen('doc');
-  showToast(`Page ${current.pages.length} ajoutée`, 'success');
+  Crop.img = null;
+  UI.renderPages();
+  toast('Page mise à jour', 'ok');
 });
 
-function applyPerspective() {
-  const img = cropState.img;
-  if (!img) return null;
-  const inv = 1/cropState.scale;
-  const src = cropState.corners.map(p=>({x:p.x*inv,y:p.y*inv}));
-  const dist=(a,b)=>Math.hypot(a.x-b.x,a.y-b.y);
-  const W = Math.round((dist(src[0],src[1])+dist(src[3],src[2]))/2);
-  const H = Math.round((dist(src[0],src[3])+dist(src[1],src[2]))/2);
-  if (W<20 || H<20) return null;
-  if (cvReady()) {
-    const tmp = document.createElement('canvas');
-    tmp.width=img.width; tmp.height=img.height;
-    tmp.getContext('2d').drawImage(img,0,0);
-    const srcMat=cv.imread(tmp), dstMat=new cv.Mat();
-    const srcTri=cv.matFromArray(4,1,cv.CV_32FC2,[src[0].x,src[0].y,src[1].x,src[1].y,src[2].x,src[2].y,src[3].x,src[3].y]);
-    const dstTri=cv.matFromArray(4,1,cv.CV_32FC2,[0,0,W,0,W,H,0,H]);
-    const M=cv.getPerspectiveTransform(srcTri,dstTri);
-    cv.warpPerspective(srcMat,dstMat,M,new cv.Size(W,H),cv.INTER_LINEAR,cv.BORDER_CONSTANT,new cv.Scalar(255,255,255,255));
-    const out=document.createElement('canvas');
-    cv.imshow(out,dstMat);
-    srcMat.delete();dstMat.delete();srcTri.delete();dstTri.delete();M.delete();
-    return out.toDataURL('image/jpeg',0.95);
-  }
-  const xs=src.map(p=>p.x), ys=src.map(p=>p.y);
-  const x0=Math.min(...xs), y0=Math.min(...ys);
-  const w=Math.max(...xs)-x0, h=Math.max(...ys)-y0;
-  const out=document.createElement('canvas');
-  out.width=w; out.height=h;
-  out.getContext('2d').drawImage(img,x0,y0,w,h,0,0,w,h);
-  return out.toDataURL('image/jpeg',0.95);
-}
-
-/* ================= OCR ================= */
-async function runOcr() {
-  if (!current || !current.pages.length) return;
-  const btn = $('doc-ocr-btn');
-  const label = btn.textContent;
-  btn.disabled = true;
-  try {
-    const worker = await Tesseract.createWorker('fra');
-    for (let i=0;i<current.pages.length;i++) {
-      btn.textContent = `Analyse ${i+1}/${current.pages.length}…`;
-      const ret = await worker.recognize(current.pages[i].url, {}, { text:true, blocks:true });
-      current.pages[i].ocrText = (ret.data.text||'').trim();
-      current.pages[i].ocrWords = extractWords(ret.data);
-    }
-    await worker.terminate();
-    ocrTab = 0;
-    renderOcrTabs();
-    $('ocr-section').classList.remove('hidden');
-    renderPages();
-    showToast('Texte extrait', 'success');
-  } catch(e) { showToast("Erreur OCR : " + e.message, 'error'); }
-  finally { btn.disabled=false; btn.textContent=label; }
-}
-$('doc-ocr-btn').addEventListener('click', runOcr);
-
-function extractWords(data) {
-  const out = [];
-  const push = w => {
-    if (!w || !w.bbox || !w.text) return;
-    if (w.confidence !== undefined && w.confidence < 40) return;
-    out.push({ text:w.text, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1 });
-  };
-  if (Array.isArray(data.words) && data.words.length) { data.words.forEach(push); return out; }
-  (data.blocks||[]).forEach(b => (b.paragraphs||[]).forEach(p => (p.lines||[]).forEach(l => (l.words||[]).forEach(push))));
-  return out;
-}
-
-let ocrTab = 0;
-function renderOcrTabs() {
-  const tabs = $('ocr-tabs');
-  tabs.innerHTML = '';
-  current.pages.forEach((p,i) => {
-    const b = document.createElement('button');
-    b.className = `px-3 py-1.5 text-xs font-mono border-b-2 whitespace-nowrap ${i===ocrTab?'tab-on':'border-transparent text-muted'}`;
-    b.textContent = `Page ${i+1}`;
-    b.addEventListener('click', () => { ocrTab=i; renderOcrTabs(); });
-    tabs.appendChild(b);
-  });
-  $('ocr-text-result').value = current.pages[ocrTab]?.ocrText || '(aucun texte détecté)';
-}
-$('ocr-copy-btn').addEventListener('click', () => navigator.clipboard.writeText($('ocr-text-result').value).then(()=>showToast('Copié','success')));
-$('ocr-download-btn').addEventListener('click', () => {
-  const full = current.pages.map((p,i)=>`--- Page ${i+1} ---\n${p.ocrText||''}`).join('\n\n');
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(new Blob([full],{type:'text/plain;charset=utf-8'}));
-  a.download = safeName(current.name)+'.txt';
-  a.click();
-});
-
-/* ================= ÉDITION DE TEXTE ================= */
-const editModal=$('edit-modal'), editCanvas=$('edit-canvas'), editBoxes=$('edit-boxes'),
-      editSheet=$('edit-input-sheet'), editInput=$('edit-input');
-const editState = { pageIndex:-1, words:[], scale:1, history:[], activeWord:-1, boxesVisible:true, work:null };
-
-function openEditor(i) {
-  const page = current.pages[i];
-  if (!page) return;
-  const words = page.ocrWords || [];
-  if (!words.length) { showToast("Lancez d'abord l'OCR pour repérer le texte", 'error'); return; }
-  const img = new Image();
-  img.onload = () => {
-    editState.pageIndex=i;
-    editState.words = JSON.parse(JSON.stringify(words));
-    editState.history=[]; editState.activeWord=-1;
-    const maxW=Math.min(window.innerWidth-24,900), maxH=window.innerHeight*0.55;
-    const scale=Math.min(maxW/img.width, maxH/img.height, 1);
-    editState.scale=scale;
-    editState.work=document.createElement('canvas');
-    editState.work.width=img.width; editState.work.height=img.height;
-    editState.work.getContext('2d').drawImage(img,0,0);
-    editCanvas.width=img.width*scale; editCanvas.height=img.height*scale;
-    refreshEditCanvas();
-    const native = page.kind === 'native';
-    $('edit-mode-badge').textContent = native ? 'TEXTE ÉDITABLE' : 'SCAN — CORRECTION';
-    $('edit-mode-badge').className = 'font-mono text-[10px] px-2 py-1 rounded-full ' + (native?'bg-teal-600':'bg-gold-600 text-ink');
-    $('edit-hint').textContent = native
-      ? 'Police et taille lues dans le PDF — touchez un mot'
-      : "Zone recouverte puis réécrite — la police d'origine n'est pas reproductible";
-    $('edit-undo-btn').disabled = true;
-    editModal.classList.remove('hidden');
-    drawEditBoxes();
-  };
-  img.src = page.url;
-}
-
-function refreshEditCanvas() {
-  const ctx = editCanvas.getContext('2d');
-  ctx.clearRect(0,0,editCanvas.width,editCanvas.height);
-  ctx.drawImage(editState.work,0,0,editCanvas.width,editCanvas.height);
-}
-function drawEditBoxes() {
-  if (!editState.boxesVisible) { editBoxes.innerHTML=''; return; }
-  const s = editState.scale;
-  editBoxes.innerHTML = editState.words.map((w,i)=>{
-    const edited = w.edited ? 'background:rgba(0,194,168,0.25);border-color:#00C2A8;' : '';
-    return `<button data-wi="${i}" style="position:absolute;left:${w.x0*s}px;top:${w.y0*s}px;width:${(w.x1-w.x0)*s}px;height:${(w.y1-w.y0)*s}px;border:1px solid rgba(59,91,255,0.7);background:rgba(59,91,255,0.12);border-radius:2px;${edited}"></button>`;
-  }).join('');
-}
-editBoxes.addEventListener('click', e => {
-  const b = e.target.closest('button[data-wi]');
-  if (!b) return;
-  const i = +b.dataset.wi, w = editState.words[i];
-  editState.activeWord = i;
-  editInput.value = w.text;
-  $('edit-input-meta').textContent = `${Math.round(w.fontPx || (w.y1-w.y0)*1.3)}px${w.fontName?' · '+String(w.fontName).replace(/^[A-Z]{6}\+/,'').slice(0,14):''}`;
-  editSheet.classList.remove('hidden');
-  editInput.focus(); editInput.select();
-});
-
-function cssFontFor(w) {
-  if (w.fontFamily) return { family:w.fontFamily, bold:!!w.bold, italic:!!w.italic };
-  const n = String(w.fontName||'').toLowerCase();
-  let family='Helvetica, Arial, sans-serif';
-  if (/times|roman|georgia|garamond|book/.test(n)) family='"Times New Roman", Times, serif';
-  else if (/courier|mono/.test(n)) family='"Courier New", Courier, monospace';
-  return { family, bold:/bold|black|heavy/.test(n), italic:/italic|oblique/.test(n) };
-}
-
-// Une boîte OCR de chiffres n'a ni hampe ni jambage : sa hauteur ne vaut pas la
-// taille de police. On déduit donc taille et ligne de base des métriques réelles.
-function fitTextMetrics(ctx, w, family, bold, italic) {
-  if (w.fontPx && w.baseline) return { size:w.fontPx, baseline:w.baseline };
-  const boxH = w.y1-w.y0, probe = 100, saved = ctx.font;
-  ctx.font = `${italic?'italic ':''}${bold?'bold ':''}${probe}px ${family}`;
-  const m = ctx.measureText(w.text || 'X');
-  ctx.font = saved;
-  const asc = m.actualBoundingBoxAscent || probe*0.72;
-  const desc = m.actualBoundingBoxDescent || 0;
-  const hh = asc + desc;
-  const size = hh>0 ? (probe*boxH)/hh : boxH;
-  return { size, baseline: w.y0 + asc*(size/probe) };
-}
-
-function sampleBackground(ctx, w) {
-  const pad=3;
-  const x=Math.max(0,Math.floor(w.x0-pad)), y=Math.max(0,Math.floor(w.y0-pad));
-  const width=Math.min(ctx.canvas.width-x, Math.ceil(w.x1-w.x0+pad*2));
-  const height=Math.min(ctx.canvas.height-y, Math.ceil(w.y1-w.y0+pad*2));
-  if (width<=0||height<=0) return { bg:'#ffffff', fg:'#000000' };
-  const data = ctx.getImageData(x,y,width,height).data;
-  const lum=[];
-  for (let i=0;i<data.length;i+=4) lum.push({l:0.299*data[i]+0.587*data[i+1]+0.114*data[i+2], i});
-  lum.sort((a,b)=>a.l-b.l);
-  const light=lum[Math.floor(lum.length*0.88)], dark=lum[Math.floor(lum.length*0.04)];
-  const px=k=>`rgb(${data[k]},${data[k+1]},${data[k+2]})`;
-  return { bg:px(light.i), fg:px(dark.i) };
-}
-
-function applyWordEdit(index, newText) {
-  const ctx = editState.work.getContext('2d');
-  const w = editState.words[index];
-  editState.history.push({ index, previous:{...w}, snapshot: editState.work.toDataURL('image/jpeg',0.95) });
-  $('edit-undo-btn').disabled = false;
-  const { bg, fg } = sampleBackground(ctx, w);
-  const pad = 2;
-  ctx.fillStyle = bg;
-  ctx.fillRect(w.x0-pad, w.y0-pad, (w.x1-w.x0)+pad*2, (w.y1-w.y0)+pad*2);
-  if (newText) {
-    const { family, bold, italic } = cssFontFor(w);
-    const fit = fitTextMetrics(ctx, w, family, bold, italic);
-    ctx.fillStyle = fg;
-    ctx.textBaseline = 'alphabetic';
-    ctx.font = `${italic?'italic ':''}${bold?'bold ':''}${fit.size}px ${family}`;
-    const available = (w.x1-w.x0)*1.6;
-    const measured = ctx.measureText(newText).width;
-    ctx.save();
-    if (measured > available && measured > 0) {
-      ctx.translate(w.x0, fit.baseline);
-      ctx.scale(available/measured, 1);
-      ctx.fillText(newText, 0, 0);
-    } else ctx.fillText(newText, w.x0, fit.baseline);
-    ctx.restore();
-    w.x1 = w.x0 + Math.min(measured, available);
-  }
-  w.text = newText; w.edited = true;
-  refreshEditCanvas(); drawEditBoxes();
-}
-
-$('edit-input-ok').addEventListener('click', () => {
-  if (editState.activeWord<0) return;
-  applyWordEdit(editState.activeWord, editInput.value.trim());
-  editSheet.classList.add('hidden');
-});
-$('edit-input-delete').addEventListener('click', () => {
-  if (editState.activeWord<0) return;
-  applyWordEdit(editState.activeWord, '');
-  editSheet.classList.add('hidden');
-});
-$('edit-input-cancel').addEventListener('click', ()=>editSheet.classList.add('hidden'));
-editInput.addEventListener('keydown', e => { if (e.key==='Enter') $('edit-input-ok').click(); });
-
-$('edit-undo-btn').addEventListener('click', () => {
-  const last = editState.history.pop();
-  if (!last) return;
-  const img = new Image();
-  img.onload = () => {
-    editState.work.getContext('2d').drawImage(img,0,0);
-    editState.words[last.index] = last.previous;
-    refreshEditCanvas(); drawEditBoxes();
-    $('edit-undo-btn').disabled = editState.history.length===0;
-  };
-  img.src = last.snapshot;
-});
-$('edit-toggle-boxes').addEventListener('click', () => {
-  editState.boxesVisible = !editState.boxesVisible;
-  $('edit-toggle-boxes').textContent = editState.boxesVisible ? 'Masquer les zones' : 'Afficher les zones';
-  drawEditBoxes();
-});
-$('edit-close-btn').addEventListener('click', () => { editModal.classList.add('hidden'); editSheet.classList.add('hidden'); });
-$('edit-apply-btn').addEventListener('click', () => {
-  const page = current.pages[editState.pageIndex];
-  if (!page) return;
-  page.url = editState.work.toDataURL('image/jpeg',0.94);
-  page.rawUrl = page.url;
-  page.ocrWords = editState.words.filter(w=>w.text);
-  page.ocrText = page.ocrWords.map(w=>w.text).join(' ');
-  editModal.classList.add('hidden'); editSheet.classList.add('hidden');
-  renderPages();
-  if (!$('ocr-section').classList.contains('hidden')) renderOcrTabs();
-  showToast('Modifications enregistrées','success');
-});
-
-/* ================= SIGNATURE ================= */
-const signaturePad = $('signature-pad'), sigCtx = signaturePad.getContext('2d');
-let isDrawing = false;
-function sigPos(e) {
-  const r = signaturePad.getBoundingClientRect();
-  const cx = e.touches?e.touches[0].clientX:e.clientX, cy = e.touches?e.touches[0].clientY:e.clientY;
-  return { x:(cx-r.left)*(signaturePad.width/r.width), y:(cy-r.top)*(signaturePad.height/r.height) };
-}
-function startDraw(e){ isDrawing=true; const p=sigPos(e); sigCtx.beginPath(); sigCtx.moveTo(p.x,p.y); }
-function draw(e){ if(!isDrawing) return; e.preventDefault(); const p=sigPos(e);
-  sigCtx.lineTo(p.x,p.y); sigCtx.strokeStyle='#0B0D13'; sigCtx.lineWidth=3; sigCtx.lineCap='round'; sigCtx.stroke(); }
-signaturePad.addEventListener('mousedown',startDraw);
-signaturePad.addEventListener('mousemove',draw);
-window.addEventListener('mouseup',()=>isDrawing=false);
-signaturePad.addEventListener('touchstart',startDraw,{passive:false});
-signaturePad.addEventListener('touchmove',draw,{passive:false});
-signaturePad.addEventListener('touchend',()=>isDrawing=false);
-
-function openSignature() {
-  sigCtx.clearRect(0,0,signaturePad.width,signaturePad.height);
-  $('signature-modal').classList.remove('hidden');
-}
-$('doc-sign-btn').addEventListener('click', () => { if (current && current.pages.length) openSignature(); });
-$('close-signature-btn').addEventListener('click', ()=>$('signature-modal').classList.add('hidden'));
-$('clear-signature-btn').addEventListener('click', ()=>sigCtx.clearRect(0,0,signaturePad.width,signaturePad.height));
-$('save-signature-btn').addEventListener('click', async () => {
-  if (!current || !current.pages.length) return;
-  const sig = signaturePad.toDataURL('image/png');
-  const targets = $('sig-all-pages').checked ? current.pages.map((_,i)=>i) : [current.pages.length-1];
-  for (const i of targets) {
-    current.pages[i].url = await composeSignature(current.pages[i].url, sig);
-    current.pages[i].rawUrl = current.pages[i].url;
-  }
-  $('signature-modal').classList.add('hidden');
-  renderPages();
-  showToast('Signature appliquée','success');
-});
-function composeSignature(baseUrl, sigUrl) {
-  return new Promise(resolve => {
-    const base = new Image();
-    base.onload = () => {
-      const sig = new Image();
-      sig.onload = () => {
-        hiddenCanvas.width=base.width; hiddenCanvas.height=base.height;
-        const ctx=hiddenCanvas.getContext('2d');
-        ctx.drawImage(base,0,0);
-        const w = base.width*0.3, h = (sig.height*w)/sig.width;
-        ctx.drawImage(sig, base.width-w-20, base.height-h-20, w, h);
-        resolve(hiddenCanvas.toDataURL('image/jpeg',0.94));
-      };
-      sig.src = sigUrl;
+/* ============================================================
+   OCR
+   ============================================================ */
+const Ocr = {
+  tab: 0,
+  async run() {
+    const d = Doc.current;
+    if (!d?.pages.length) return;
+    const btn = $('btn-ocr'), label = btn.textContent;
+    btn.disabled = true;
+    try {
+      const w = await Tesseract.createWorker('fra');
+      for (let i=0;i<d.pages.length;i++) {
+        btn.textContent = `Analyse ${i+1}/${d.pages.length}…`;
+        const r = await w.recognize(d.pages[i].url, {}, { text:true, blocks:true });
+        d.pages[i].text = (r.data.text||'').trim();
+        d.pages[i].words = Ocr.extract(r.data);
+      }
+      await w.terminate();
+      Ocr.tab = 0; Ocr.tabs();
+      $('ocr-section').classList.remove('hidden');
+      UI.renderPages();
+      toast('Texte extrait', 'ok');
+    } catch(e) { toast('Erreur OCR', 'err'); }
+    finally { btn.disabled=false; btn.textContent=label; }
+  },
+  extract(data) {
+    const out = [];
+    const add = w => {
+      if (!w?.bbox || !w.text) return;
+      if (w.confidence !== undefined && w.confidence < 40) return;
+      out.push({ text:w.text, x0:w.bbox.x0, y0:w.bbox.y0, x1:w.bbox.x1, y1:w.bbox.y1 });
     };
-    base.src = baseUrl;
-  });
-}
+    if (Array.isArray(data.words) && data.words.length) { data.words.forEach(add); return out; }
+    (data.blocks||[]).forEach(b => (b.paragraphs||[]).forEach(p => (p.lines||[]).forEach(l => (l.words||[]).forEach(add))));
+    return out;
+  },
+  tabs() {
+    const t = $('ocr-tabs'); t.innerHTML = '';
+    Doc.current.pages.forEach((p,i) => {
+      const b = document.createElement('button');
+      b.className = `px-3 py-1.5 text-[11px] border-b-2 whitespace-nowrap ${i===Ocr.tab?'tab-on':'border-transparent text-muted'}`;
+      b.textContent = `Page ${i+1}`;
+      b.onclick = () => { Ocr.tab = i; Ocr.tabs(); };
+      t.appendChild(b);
+    });
+    $('ocr-text').value = Doc.current.pages[Ocr.tab]?.text || '(aucun texte détecté)';
+  },
+};
+$('btn-ocr').addEventListener('click', () => Ocr.run());
+$('ocr-copy').addEventListener('click', () => navigator.clipboard.writeText($('ocr-text').value).then(()=>toast('Copié','ok')));
+$('ocr-dl').addEventListener('click', () => {
+  const txt = Doc.current.pages.map((p,i)=>`--- Page ${i+1} ---\n${p.text||''}`).join('\n\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([txt],{type:'text/plain;charset=utf-8'}));
+  a.download = safe(Doc.current.name)+'.txt'; a.click();
+});
 
-/* ================= EXPORT PDF ================= */
-const safeName = n => (n||'document').replace(/[^a-zA-Z0-9_\- ]/g,'_').trim().replace(/\s+/g,'_');
+/* ============================================================
+   ÉDITION DE TEXTE
+   ============================================================ */
+const Edit = {
+  i:-1, words:[], scale:1, hist:[], active:-1, boxes:true, work:null,
 
-function exportPdf() {
-  if (!current || !current.pages.length) { showToast('Document vide','error'); return; }
-  const { jsPDF } = window.jspdf;
-  const doc = new jsPDF();
-  let searchable = 0;
-  current.pages.forEach((page, idx) => {
-    if (idx>0) doc.addPage();
-    const props = doc.getImageProperties(page.url);
-    const pw = doc.internal.pageSize.getWidth();
-    const ph = (props.height*pw)/props.width;
-    doc.addImage(page.url,'JPEG',0,0,pw,ph);
-    // Couche de texte invisible : rend le PDF cherchable
-    if (page.ocrWords && page.ocrWords.length) {
-      const ratio = pw/props.width;
-      doc.setTextColor(0,0,0);
-      page.ocrWords.forEach(w => {
-        const bw=(w.x1-w.x0)*ratio, bh=(w.y1-w.y0)*ratio;
-        if (bw<=0||bh<=0||!w.text.trim()) return;
-        doc.setFontSize(Math.max(1,bh*2.6));
-        const nat = doc.getTextWidth(w.text);
-        doc.text(w.text, w.x0*ratio, w.y1*ratio, {
-          renderingMode:'invisible',
-          horizontalScale: nat>0 ? (bw/nat)*100 : 100,
-        });
-      });
-      searchable++;
+  async open(i) {
+    const p = Doc.current.pages[i];
+    if (!p?.words?.length) return toast("Lancez d'abord l'OCR", 'err');
+    const img = await loadImage(p.url);
+    Edit.i = i;
+    Edit.words = JSON.parse(JSON.stringify(p.words));
+    Edit.hist = []; Edit.active = -1;
+    Edit.scale = Math.min((Math.min(innerWidth-24,900))/img.width, (innerHeight*0.55)/img.height, 1);
+    Edit.work = canvasOf(img.width, img.height);
+    Edit.work.getContext('2d').drawImage(img,0,0);
+    const c = $('edit-canvas');
+    c.width = img.width*Edit.scale; c.height = img.height*Edit.scale;
+    Edit.refresh();
+    const native = p.kind === 'native';
+    $('edit-badge').textContent = native ? 'TEXTE ÉDITABLE' : 'SCAN — CORRECTION';
+    $('edit-badge').className = 'text-[10px] px-2 py-1 rounded ' + (native?'bg-teal-600 text-ink':'bg-gold-600 text-ink');
+    $('edit-hint').textContent = native ? 'Police lue dans le PDF — touchez un mot'
+                                        : "Zone recouverte puis réécrite — police d'origine non reproductible";
+    $('edit-undo').disabled = true;
+    $('edit').classList.remove('hidden');
+    Edit.drawBoxes();
+  },
+  refresh() {
+    const c = $('edit-canvas'), x = c.getContext('2d');
+    x.clearRect(0,0,c.width,c.height);
+    x.drawImage(Edit.work, 0,0, c.width, c.height);
+  },
+  drawBoxes() {
+    if (!Edit.boxes) return $('edit-boxes').innerHTML = '';
+    const s = Edit.scale;
+    $('edit-boxes').innerHTML = Edit.words.map((w,i) =>
+      `<button data-w="${i}" style="position:absolute;left:${w.x0*s}px;top:${w.y0*s}px;width:${(w.x1-w.x0)*s}px;height:${(w.y1-w.y0)*s}px;border:1px solid rgba(0,194,168,.75);background:rgba(0,194,168,${w.edited?.3:.12});border-radius:2px"></button>`).join('');
+  },
+  // Une boîte OCR de chiffres n'a ni hampe ni jambage : sa hauteur ne vaut pas
+  // la taille de police. On la déduit des métriques réelles du texte d'origine.
+  metrics(ctx, w, family, bold, italic) {
+    if (w.fontPx && w.baseline) return { size:w.fontPx, baseline:w.baseline };
+    const probe = 100, saved = ctx.font;
+    ctx.font = `${italic?'italic ':''}${bold?'bold ':''}${probe}px ${family}`;
+    const m = ctx.measureText(w.text || 'X');
+    ctx.font = saved;
+    const asc = m.actualBoundingBoxAscent || probe*0.72;
+    const desc = m.actualBoundingBoxDescent || 0;
+    const size = (asc+desc) > 0 ? (probe*(w.y1-w.y0))/(asc+desc) : (w.y1-w.y0);
+    return { size, baseline: w.y0 + asc*(size/probe) };
+  },
+  sample(ctx, w) {
+    const pad=3, x=Math.max(0,~~(w.x0-pad)), y=Math.max(0,~~(w.y0-pad));
+    const cw=Math.min(ctx.canvas.width-x, Math.ceil(w.x1-w.x0+pad*2));
+    const ch=Math.min(ctx.canvas.height-y, Math.ceil(w.y1-w.y0+pad*2));
+    if (cw<=0||ch<=0) return { bg:'#fff', fg:'#000' };
+    const d = ctx.getImageData(x,y,cw,ch).data, l=[];
+    for (let i=0;i<d.length;i+=4) l.push({ v:0.299*d[i]+0.587*d[i+1]+0.114*d[i+2], i });
+    l.sort((a,b)=>a.v-b.v);
+    const px = k => `rgb(${d[k]},${d[k+1]},${d[k+2]})`;
+    return { bg: px(l[~~(l.length*0.88)].i), fg: px(l[~~(l.length*0.04)].i) };
+  },
+  font(w) {
+    if (w.fontFamily) return { family:w.fontFamily, bold:!!w.bold, italic:!!w.italic };
+    const n = String(w.fontName||'').toLowerCase();
+    let family = 'Helvetica, Arial, sans-serif';
+    if (/times|roman|georgia|garamond|book/.test(n)) family = '"Times New Roman", Times, serif';
+    else if (/courier|mono/.test(n)) family = '"Courier New", Courier, monospace';
+    return { family, bold:/bold|black|heavy/.test(n), italic:/italic|oblique/.test(n) };
+  },
+  apply(i, text) {
+    const ctx = Edit.work.getContext('2d'), w = Edit.words[i];
+    Edit.hist.push({ i, prev:{...w}, snap: Edit.work.toDataURL('image/jpeg',0.95) });
+    $('edit-undo').disabled = false;
+    const { bg, fg } = Edit.sample(ctx, w);
+    ctx.fillStyle = bg;
+    ctx.fillRect(w.x0-2, w.y0-2, (w.x1-w.x0)+4, (w.y1-w.y0)+4);
+    if (text) {
+      const f = Edit.font(w), m = Edit.metrics(ctx, w, f.family, f.bold, f.italic);
+      ctx.fillStyle = fg; ctx.textBaseline = 'alphabetic';
+      ctx.font = `${f.italic?'italic ':''}${f.bold?'bold ':''}${m.size}px ${f.family}`;
+      const avail = (w.x1-w.x0)*1.6, mw = ctx.measureText(text).width;
+      ctx.save();
+      if (mw > avail && mw > 0) { ctx.translate(w.x0, m.baseline); ctx.scale(avail/mw, 1); ctx.fillText(text,0,0); }
+      else ctx.fillText(text, w.x0, m.baseline);
+      ctx.restore();
+      w.x1 = w.x0 + Math.min(mw, avail);
     }
-  });
-  doc.save(safeName(current.name)+'.pdf');
-  showToast(searchable ? `PDF exporté — ${searchable}/${current.pages.length} page(s) cherchable(s)`
-                       : "PDF exporté — lancez l'OCR pour le rendre cherchable", 'success');
-}
-$('doc-export-btn').addEventListener('click', exportPdf);
+    w.text = text; w.edited = true;
+    Edit.refresh(); Edit.drawBoxes();
+  },
+};
+$('edit-boxes').addEventListener('click', e => {
+  const b = e.target.closest('[data-w]'); if (!b) return;
+  const i = +b.dataset.w, w = Edit.words[i];
+  Edit.active = i;
+  $('edit-input').value = w.text;
+  $('edit-meta').textContent = `${Math.round(w.fontPx || (w.y1-w.y0)*1.3)}px`;
+  $('edit-sheet').classList.remove('hidden');
+  $('edit-input').focus(); $('edit-input').select();
+});
+$('ei-ok').addEventListener('click', () => { if (Edit.active>=0) Edit.apply(Edit.active, $('edit-input').value.trim()); $('edit-sheet').classList.add('hidden'); });
+$('ei-del').addEventListener('click', () => { if (Edit.active>=0) Edit.apply(Edit.active, ''); $('edit-sheet').classList.add('hidden'); });
+$('ei-cancel').addEventListener('click', () => $('edit-sheet').classList.add('hidden'));
+$('edit-input').addEventListener('keydown', e => { if (e.key==='Enter') $('ei-ok').click(); });
+$('edit-undo').addEventListener('click', async () => {
+  const l = Edit.hist.pop(); if (!l) return;
+  const img = await loadImage(l.snap);
+  Edit.work.getContext('2d').drawImage(img,0,0);
+  Edit.words[l.i] = l.prev;
+  Edit.refresh(); Edit.drawBoxes();
+  $('edit-undo').disabled = Edit.hist.length===0;
+});
+$('edit-toggle').addEventListener('click', () => {
+  Edit.boxes = !Edit.boxes;
+  $('edit-toggle').textContent = Edit.boxes ? 'Masquer les zones' : 'Afficher les zones';
+  Edit.drawBoxes();
+});
+$('edit-close').addEventListener('click', () => { $('edit').classList.add('hidden'); $('edit-sheet').classList.add('hidden'); });
+$('edit-save').addEventListener('click', () => {
+  const p = Doc.current.pages[Edit.i]; if (!p) return;
+  p.url = Edit.work.toDataURL('image/jpeg', 0.94);
+  p.raw = p.url;
+  p.words = Edit.words.filter(w=>w.text);
+  p.text = p.words.map(w=>w.text).join(' ');
+  $('edit').classList.add('hidden'); $('edit-sheet').classList.add('hidden');
+  UI.renderPages();
+  if (!$('ocr-section').classList.contains('hidden')) Ocr.tabs();
+  toast('Enregistré', 'ok');
+});
 
-/* ================= DÉMARRAGE ================= */
+/* ============================================================
+   SIGNATURE
+   ============================================================ */
+const Sig = {
+  drawing:false,
+  ctx: $('sig-pad').getContext('2d'),
+  pos(e) {
+    const c = $('sig-pad'), r = c.getBoundingClientRect();
+    const x = e.touches?e.touches[0].clientX:e.clientX, y = e.touches?e.touches[0].clientY:e.clientY;
+    return { x:(x-r.left)*(c.width/r.width), y:(y-r.top)*(c.height/r.height) };
+  },
+  open() { Sig.ctx.clearRect(0,0,400,200); $('sig').classList.remove('hidden'); },
+};
+const sigStart = e => { Sig.drawing=true; const p=Sig.pos(e); Sig.ctx.beginPath(); Sig.ctx.moveTo(p.x,p.y); };
+const sigMove = e => {
+  if (!Sig.drawing) return; e.preventDefault();
+  const p = Sig.pos(e);
+  Sig.ctx.lineTo(p.x,p.y); Sig.ctx.strokeStyle='#0B0D13'; Sig.ctx.lineWidth=3; Sig.ctx.lineCap='round'; Sig.ctx.stroke();
+};
+$('sig-pad').addEventListener('mousedown', sigStart);
+$('sig-pad').addEventListener('mousemove', sigMove);
+addEventListener('mouseup', ()=>Sig.drawing=false);
+$('sig-pad').addEventListener('touchstart', sigStart, { passive:false });
+$('sig-pad').addEventListener('touchmove', sigMove, { passive:false });
+$('sig-pad').addEventListener('touchend', ()=>Sig.drawing=false);
+$('btn-sign').addEventListener('click', () => { if (Doc.current?.pages.length) Sig.open(); });
+$('sig-close').addEventListener('click', ()=>$('sig').classList.add('hidden'));
+$('sig-clear').addEventListener('click', ()=>Sig.ctx.clearRect(0,0,400,200));
+$('sig-save').addEventListener('click', async () => {
+  const d = Doc.current; if (!d?.pages.length) return;
+  const sig = await loadImage($('sig-pad').toDataURL('image/png'));
+  const targets = $('sig-all').checked ? d.pages.map((_,i)=>i) : [d.pages.length-1];
+  for (const i of targets) {
+    const base = await loadImage(d.pages[i].url);
+    const c = canvasOf(base.width, base.height), x = c.getContext('2d');
+    x.drawImage(base,0,0);
+    const w = base.width*0.3, h = (sig.height*w)/sig.width;
+    x.drawImage(sig, base.width-w-20, base.height-h-20, w, h);
+    d.pages[i].url = c.toDataURL('image/jpeg', CFG.JPEG);
+    d.pages[i].raw = d.pages[i].url;
+  }
+  $('sig').classList.add('hidden');
+  UI.renderPages();
+  toast('Signature appliquée', 'ok');
+});
+
+/* ============================================================
+   EXPORT PDF (avec couche de texte invisible = cherchable)
+   ============================================================ */
+const safe = n => (n||'document').replace(/[^a-zA-Z0-9_\- ]/g,'_').trim().replace(/\s+/g,'_');
+const Export = {
+  pdf() {
+    const d = Doc.current;
+    if (!d?.pages.length) return toast('Document vide', 'err');
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF();
+    let n = 0;
+    d.pages.forEach((p, i) => {
+      if (i) doc.addPage();
+      const pr = doc.getImageProperties(p.url);
+      const w = doc.internal.pageSize.getWidth();
+      doc.addImage(p.url, 'JPEG', 0, 0, w, (pr.height*w)/pr.width);
+      if (p.words?.length) {
+        const k = w/pr.width;
+        doc.setTextColor(0,0,0);
+        p.words.forEach(x => {
+          const bw = (x.x1-x.x0)*k, bh = (x.y1-x.y0)*k;
+          if (bw<=0||bh<=0||!x.text.trim()) return;
+          doc.setFontSize(Math.max(1, bh*2.6));
+          const nat = doc.getTextWidth(x.text);
+          doc.text(x.text, x.x0*k, x.y1*k, { renderingMode:'invisible', horizontalScale: nat>0?(bw/nat)*100:100 });
+        });
+        n++;
+      }
+    });
+    doc.save(safe(d.name)+'.pdf');
+    toast(n ? `PDF exporté — ${n}/${d.pages.length} cherchable(s)` : "PDF exporté — OCR pour le rendre cherchable", 'ok');
+  },
+};
+$('btn-export').addEventListener('click', () => Export.pdf());
+
+/* ============================================================
+   DÉMARRAGE
+   ============================================================ */
 (async function init() {
-  try {
-    await DB.open();
-    library = await DB.all();
-  } catch(e) { showToast('Stockage local indisponible','error'); }
-  showScreen('home');
+  try { await DB.open(); Doc.library = await DB.all(); }
+  catch(e) { toast('Stockage indisponible', 'err'); }
+  if (CV.state === 'ready') { $('cv-status').textContent='Active'; $('cv-status').className='text-[10px] font-semibold text-teal-600'; }
+  else if (CV.state === 'failed') { $('cv-status').textContent='Indisponible'; $('cv-status').className='text-[10px] font-semibold text-orange-600'; }
+  else $('cv-status').textContent = 'Chargement…';
+  UI.show('home');
 })();
 </script>
 </body>
