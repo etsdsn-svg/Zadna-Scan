@@ -330,9 +330,16 @@
 
     <div class="px-5 pb-[max(env(safe-area-inset-bottom),1.25rem)] pt-4 flex flex-col gap-3">
       <p id="crop-hint" class="text-center text-xs text-white/50">Faites glisser les coins pour cadrer le document</p>
+
+      <div class="flex items-center justify-center gap-2">
+        <button data-filter="auto" class="filter-btn px-4 py-2 rounded-full text-xs font-semibold transition-colors bg-indigo-600 text-white">Auto</button>
+        <button data-filter="bw" class="filter-btn px-4 py-2 rounded-full text-xs font-semibold transition-colors bg-white/10 text-white/70">Noir &amp; blanc</button>
+        <button data-filter="photo" class="filter-btn px-4 py-2 rounded-full text-xs font-semibold transition-colors bg-white/10 text-white/70">Photo</button>
+      </div>
+
       <div class="flex items-center gap-3">
         <button id="crop-auto-btn" class="flex-1 py-3 rounded-xl bg-white/10 hover:bg-white/20 text-white text-sm font-medium transition-colors">Détecter à nouveau</button>
-        <button id="crop-apply-btn" class="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">Valider le cadrage</button>
+        <button id="crop-apply-btn" class="flex-1 py-3 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-sm font-semibold transition-colors">Valider</button>
       </div>
     </div>
   </div>
@@ -508,9 +515,10 @@
         renderGallery();
       } else if (act === 'enhance') {
         const page = state.pages[idx];
-        page.enhanced = !page.enhanced;
-        page.url = await filterDataUrl(page.enhanced ? page.rawUrl || page.url : (page.rawUrl || page.url), page.enhanced);
         if (!page.rawUrl) page.rawUrl = page.url;
+        page.enhanced = !page.enhanced;
+        showToast('Traitement…', 'info');
+        page.url = page.enhanced ? await processScan(page.rawUrl, 'bw') : page.rawUrl;
         renderGallery();
       }
     });
@@ -1190,17 +1198,30 @@
       cropState.img = null;
     });
 
+    // Choix du rendu (Auto / N&B / Photo)
+    let selectedFilter = 'auto';
+    document.querySelectorAll('.filter-btn').forEach(btn => {
+      btn.addEventListener('click', () => {
+        selectedFilter = btn.dataset.filter;
+        document.querySelectorAll('.filter-btn').forEach(b => {
+          const on = b.dataset.filter === selectedFilter;
+          b.className = 'filter-btn px-4 py-2 rounded-full text-xs font-semibold transition-colors ' +
+            (on ? 'bg-indigo-600 text-white' : 'bg-white/10 text-white/70');
+        });
+      });
+    });
+
     cropApplyBtn.addEventListener('click', async () => {
       let result = applyPerspective();
-      const shouldSharpen = cropState.autoSharpen;
+      const wantsProcessing = cropState.autoSharpen;
       cropModal.classList.add('hidden');
       cropState.img = null;
       if (result) {
-        if (shouldSharpen) {
-          showToast('Traitement de la netteté…', 'info');
-          result = await autoSharpenDataUrl(result);
+        if (wantsProcessing && selectedFilter !== 'photo') {
+          showToast('Traitement du document…', 'info');
+          result = await processScan(result, selectedFilter);
         }
-        addPage(result);
+        addPage(result, { filter: selectedFilter });
         showToast(`Page ${state.pages.length} ajoutée`, 'success');
       }
     });
@@ -1248,52 +1269,144 @@
       return out.toDataURL('image/jpeg', 0.92);
     }
 
-    // ---------- Rotation / amélioration ----------
+    // ---------- Rotation / traitement d'image ----------
 
-    // Netteté automatique légère (unsharp mask) + contraste doux : c'est ce
-    // qui donne un rendu "document scanné" plutôt que "photo brute", sans
-    // passer en noir & blanc (contrairement au bouton "N&B+" manuel).
-    function autoSharpenDataUrl(dataUrl) {
+    // Flou rapide par sous-échantillonnage : sert à estimer l'éclairage de fond
+    // (bien plus rapide qu'une convolution à grand rayon).
+    function estimateBackground(srcCanvas, divisor = 24) {
+      const sw = Math.max(2, Math.round(srcCanvas.width / divisor));
+      const sh = Math.max(2, Math.round(srcCanvas.height / divisor));
+      const small = document.createElement('canvas');
+      small.width = sw; small.height = sh;
+      const sctx = small.getContext('2d');
+      sctx.filter = 'blur(2px)';
+      sctx.drawImage(srcCanvas, 0, 0, sw, sh);
+
+      const big = document.createElement('canvas');
+      big.width = srcCanvas.width; big.height = srcCanvas.height;
+      const bctx = big.getContext('2d');
+      bctx.imageSmoothingEnabled = true;
+      bctx.imageSmoothingQuality = 'high';
+      bctx.drawImage(small, 0, 0, srcCanvas.width, srcCanvas.height);
+      return bctx.getImageData(0, 0, srcCanvas.width, srcCanvas.height).data;
+    }
+
+    /**
+     * Traitement "scanner" : supprime les ombres et l'éclairage inégal en
+     * divisant l'image par son fond estimé, puis remet le papier à blanc.
+     * mode : 'auto' (couleur nettoyée) | 'bw' (noir & blanc) | 'photo' (brut)
+     */
+    function processScan(dataUrl, mode = 'auto') {
       return new Promise(resolve => {
+        if (mode === 'photo') { resolve(dataUrl); return; }
         const img = new Image();
         img.onload = () => {
           const w = img.width, h = img.height;
           const canvas = document.createElement('canvas');
           canvas.width = w; canvas.height = h;
           const ctx = canvas.getContext('2d');
-          ctx.filter = 'contrast(1.10) saturate(1.05)';
           ctx.drawImage(img, 0, 0);
-          ctx.filter = 'none';
 
           try {
             const src = ctx.getImageData(0, 0, w, h);
+            const sd = src.data;
+            const bg = estimateBackground(canvas);
+
+            // 1) Division par le fond : chaque pixel est comparé à l'éclairage
+            //    local, ce qui neutralise ombres et vignettage. Le plancher sur
+            //    le fond évite les divisions explosives dans les zones très
+            //    sombres (qui créaient des taches et du bruit coloré).
+            for (let i = 0; i < sd.length; i += 4) {
+              for (let c = 0; c < 3; c++) {
+                const b = Math.max(bg[i + c], 32);
+                const v = (sd[i + c] / b) * 245;
+                sd[i + c] = v > 255 ? 255 : v;
+              }
+            }
+
+            // 2) Mise à plat du papier : les pixels clairs deviennent du blanc
+            //    neutre et perdent leur teinte, ce qui supprime la moucheture
+            //    colorée issue du bruit du capteur.
+            for (let i = 0; i < sd.length; i += 4) {
+              const lum = sd[i] * 0.299 + sd[i+1] * 0.587 + sd[i+2] * 0.114;
+              if (lum >= 214) {
+                sd[i] = sd[i+1] = sd[i+2] = 255;
+              } else {
+                // désaturation progressive : plus c'est clair, plus c'est neutre
+                const t = Math.max(0, Math.min(1, (lum - 110) / 104));
+                sd[i]   = sd[i]   + (lum - sd[i])   * t;
+                sd[i+1] = sd[i+1] + (lum - sd[i+1]) * t;
+                sd[i+2] = sd[i+2] + (lum - sd[i+2]) * t;
+              }
+            }
+
+            // 3) Étalement du contraste sur la luminance (papier -> blanc pur,
+            //    encre -> noir franc), calculé sur un échantillon de pixels.
+            const hist = new Uint32Array(256);
+            for (let i = 0; i < sd.length; i += 40) {
+              const l = (sd[i] * 0.299 + sd[i+1] * 0.587 + sd[i+2] * 0.114) | 0;
+              hist[l]++;
+            }
+            let total = 0;
+            for (let i = 0; i < 256; i++) total += hist[i];
+            let acc = 0, low = 0, high = 255;
+            for (let i = 0; i < 256; i++) { acc += hist[i]; if (acc > total * 0.02) { low = i; break; } }
+            acc = 0;
+            for (let i = 255; i >= 0; i--) { acc += hist[i]; if (acc > total * 0.25) { high = i; break; } }
+            if (high - low < 40) { low = 0; high = 255; }
+            const range = high - low;
+
+            if (mode === 'bw') {
+              const t = low + range * 0.60;
+              for (let i = 0; i < sd.length; i += 4) {
+                const l = sd[i] * 0.299 + sd[i+1] * 0.587 + sd[i+2] * 0.114;
+                const v = l < t ? 0 : 255;
+                sd[i] = sd[i+1] = sd[i+2] = v;
+              }
+            } else {
+              for (let i = 0; i < sd.length; i += 4) {
+                for (let c = 0; c < 3; c++) {
+                  let v = ((sd[i+c] - low) / range) * 255;
+                  v = v < 0 ? 0 : (v > 255 ? 255 : v);
+                  v = v < 128 ? 128 * Math.pow(v / 128, 1.25)
+                              : 255 - 127 * Math.pow((255 - v) / 127, 1.25);
+                  sd[i+c] = v;
+                }
+              }
+            }
+            ctx.putImageData(src, 0, 0);
+
+            // 3) Accentuation finale des contours du texte
+            const sharp = document.createElement('canvas');
+            sharp.width = w; sharp.height = h;
+            const shctx = sharp.getContext('2d');
+            shctx.drawImage(canvas, 0, 0);
+            const a = ctx.getImageData(0, 0, w, h);
             const out = ctx.createImageData(w, h);
-            const sd = src.data, od = out.data;
-            // Noyau de netteté 3x3 (unsharp léger) : renforce les bords
-            // (traits de texte, contours) sans amplifier le bruit du capteur.
-            const k = [0, -0.35, 0, -0.35, 2.4, -0.35, 0, -0.35, 0];
+            const ad = a.data, od = out.data;
+            const k = [0, -0.4, 0, -0.4, 2.6, -0.4, 0, -0.4, 0];
             for (let y = 0; y < h; y++) {
               for (let x = 0; x < w; x++) {
                 const i = (y * w + x) * 4;
                 if (x === 0 || y === 0 || x === w-1 || y === h-1) {
-                  od[i]=sd[i]; od[i+1]=sd[i+1]; od[i+2]=sd[i+2]; od[i+3]=sd[i+3];
-                  continue;
+                  od[i]=ad[i]; od[i+1]=ad[i+1]; od[i+2]=ad[i+2]; od[i+3]=255; continue;
                 }
                 for (let c = 0; c < 3; c++) {
                   let sum = 0, ki = 0;
-                  for (let dy = -1; dy <= 1; dy++) {
-                    for (let dx = -1; dx <= 1; dx++, ki++) {
-                      const j = ((y+dy) * w + (x+dx)) * 4 + c;
-                      sum += sd[j] * k[ki];
-                    }
-                  }
+                  for (let dy = -1; dy <= 1; dy++)
+                    for (let dx = -1; dx <= 1; dx++, ki++)
+                      sum += ad[((y+dy) * w + (x+dx)) * 4 + c] * k[ki];
                   od[i+c] = sum < 0 ? 0 : (sum > 255 ? 255 : sum);
                 }
-                od[i+3] = sd[i+3];
+                od[i+3] = 255;
               }
             }
             ctx.putImageData(out, 0, 0);
-          } catch (e) { /* repli silencieux : contraste seul déjà appliqué */ }
+          } catch (e) {
+            // Repli : au moins un contraste global
+            ctx.filter = 'contrast(1.3) brightness(1.1)';
+            ctx.drawImage(img, 0, 0);
+          }
 
           resolve(canvas.toDataURL('image/jpeg', 0.95));
         };
@@ -1315,21 +1428,6 @@
           ctx.translate(w/2, h/2);
           ctx.rotate(rad);
           ctx.drawImage(img, -img.width/2, -img.height/2);
-          resolve(canvas.toDataURL('image/jpeg', 0.92));
-        };
-        img.src = dataUrl;
-      });
-    }
-
-    function filterDataUrl(dataUrl, enhance) {
-      return new Promise(resolve => {
-        const img = new Image();
-        img.onload = () => {
-          const canvas = document.createElement('canvas');
-          canvas.width = img.width; canvas.height = img.height;
-          const ctx = canvas.getContext('2d');
-          ctx.filter = enhance ? 'grayscale(1) contrast(1.45) brightness(1.08)' : 'none';
-          ctx.drawImage(img, 0, 0);
           resolve(canvas.toDataURL('image/jpeg', 0.92));
         };
         img.src = dataUrl;
